@@ -53,7 +53,8 @@ export default function Home() {
   useEffect(() => {
     loadData();
     if (!supabase) return;
-    const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => setUserEmail(session?.user?.email ?? null));
+    const client = supabase;
+    const { data: listener } = client.auth.onAuthStateChange((_event, session) => setUserEmail(session?.user?.email ?? null));
     return () => listener.subscription.unsubscribe();
   }, []);
 
@@ -61,11 +62,12 @@ export default function Home() {
 
   useEffect(() => {
     if (!supabase || !activeBoard) return;
-    const channel = supabase.channel(`board-${activeBoard.id}`)
+    const client = supabase;
+    const channel = client.channel(`board-${activeBoard.id}`)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'lists', filter: `board_id=eq.${activeBoard.id}` }, () => loadBoardContent(activeBoard.id))
       .on('postgres_changes', { event: '*', schema: 'public', table: 'cards' }, () => loadBoardContent(activeBoard.id))
       .subscribe();
-    return () => { supabase.removeChannel(channel); };
+    return () => { client.removeChannel(channel); };
   }, [activeBoard?.id]);
 
   async function createBoard() {
@@ -115,28 +117,16 @@ export default function Home() {
           <div><div className="eyebrow">Arbeitsbereich</div><h1>Mein Dashboard</h1></div>
           <div className="top-actions">{userEmail ? <button className="ghost" onClick={signOut}>Abmelden</button> : <a className="ghost button-link" href="/auth">Anmelden</a>}<button className="primary" onClick={createBoard}>+ Neues Board</button></div>
         </header>
-
         {!supabaseConfigured && <div className="setup-banner"><strong>Supabase-Verbindung fehlt.</strong><span>Die Oberfläche läuft bereits. Für echte Benutzer, Boards und Echtzeit-Daten müssen in Vercel die beiden NEXT_PUBLIC_SUPABASE_* Variablen gesetzt werden.</span></div>}
         {notice && <div className="notice">{notice}<button onClick={() => setNotice('')}>×</button></div>}
-
-        <section className="hero">
-          <div><p className="eyebrow">Orgaplattform</p><h2>Alles im Blick. Gemeinsam arbeiten.</h2><p>Boards, Aufgaben und Teams – vorbereitet für Echtzeit-Zusammenarbeit.</p></div>
-          <div className="hero-stat"><strong>{supabaseConfigured ? boards.length : 3}</strong><span>aktive Boards</span></div>
-        </section>
-
+        <section className="hero"><div><p className="eyebrow">Orgaplattform</p><h2>Alles im Blick. Gemeinsam arbeiten.</h2><p>Boards, Aufgaben und Teams – vorbereitet für Echtzeit-Zusammenarbeit.</p></div><div className="hero-stat"><strong>{supabaseConfigured ? boards.length : 3}</strong><span>aktive Boards</span></div></section>
         <section className="board-section" id="boards">
           <div className="section-heading"><div><p className="eyebrow">Aktuelles Board</p><h2>{activeBoard?.name ?? 'Projektübersicht'}</h2></div>{supabaseConfigured && !userEmail ? <a className="ghost button-link" href="/auth">Board öffnen</a> : null}</div>
-          {supabaseConfigured && !userEmail ? (
-            <div className="empty-state"><h3>Bereit für dein erstes Board</h3><p>Melde dich an oder registriere dich, um Boards dauerhaft in Supabase zu speichern.</p><a className="primary button-link" href="/auth">Jetzt starten</a></div>
-          ) : supabaseConfigured && loading ? (
-            <div className="empty-state"><h3>Daten werden geladen …</h3></div>
-          ) : supabaseConfigured && !activeBoard ? (
-            <div className="empty-state"><h3>Noch kein Board vorhanden</h3><p>Erstelle oben dein erstes Projektboard.</p><button className="primary" onClick={createBoard}>+ Erstes Board erstellen</button></div>
-          ) : supabaseConfigured ? (
-            <div className="kanban">{activeLists.map((list) => <div className="column" key={list.id}><div className="column-head"><span>{list.name}</span><span className="count">{activeCards.filter((c) => c.list_id === list.id).length}</span></div>{activeCards.filter((c) => c.list_id === list.id).map((card) => <article className="card" key={card.id}><div className="card-title">{card.title}</div><div className="card-meta"><span>Aufgabe</span><span>⋯</span></div></article>)}<button className="add-card" onClick={() => addCard(list.id)}>+ Aufgabe hinzufügen</button></div>)}<div className="column-add"><button className="add-card" onClick={addList}>+ Liste hinzufügen</button></div></div>
-          ) : (
-            <div className="kanban">{demoColumns.map((column) => <div className="column" key={column.title}><div className="column-head"><span>{column.title}</span><span className="count">{column.cards.length}</span></div>{column.cards.map((card, index) => <article className="card" key={card}><div className="card-title">{card}</div><div className="card-meta"><span>Aufgabe</span><span>⋯</span></div>{index === 0 && <div className="progress"><i /></div>}</article>)}<button className="add-card">+ Aufgabe hinzufügen</button></div>)}</div>
-          )}
+          {supabaseConfigured && !userEmail ? <div className="empty-state"><h3>Bereit für dein erstes Board</h3><p>Melde dich an oder registriere dich, um Boards dauerhaft in Supabase zu speichern.</p><a className="primary button-link" href="/auth">Jetzt starten</a></div>
+          : supabaseConfigured && loading ? <div className="empty-state"><h3>Daten werden geladen …</h3></div>
+          : supabaseConfigured && !activeBoard ? <div className="empty-state"><h3>Noch kein Board vorhanden</h3><p>Erstelle oben dein erstes Projektboard.</p><button className="primary" onClick={createBoard}>+ Erstes Board erstellen</button></div>
+          : supabaseConfigured ? <div className="kanban">{activeLists.map((list) => <div className="column" key={list.id}><div className="column-head"><span>{list.name}</span><span className="count">{activeCards.filter((c) => c.list_id === list.id).length}</span></div>{activeCards.filter((c) => c.list_id === list.id).map((card) => <article className="card" key={card.id}><div className="card-title">{card.title}</div><div className="card-meta"><span>Aufgabe</span><span>⋯</span></div></article>)}<button className="add-card" onClick={() => addCard(list.id)}>+ Aufgabe hinzufügen</button></div>)}<div className="column-add"><button className="add-card" onClick={addList}>+ Liste hinzufügen</button></div></div>
+          : <div className="kanban">{demoColumns.map((column) => <div className="column" key={column.title}><div className="column-head"><span>{column.title}</span><span className="count">{column.cards.length}</span></div>{column.cards.map((card, index) => <article className="card" key={card}><div className="card-title">{card}</div><div className="card-meta"><span>Aufgabe</span><span>⋯</span></div>{index === 0 && <div className="progress"><i /></div>}</article>)}<button className="add-card">+ Aufgabe hinzufügen</button></div>)}</div>}
         </section>
       </section>
     </main>
