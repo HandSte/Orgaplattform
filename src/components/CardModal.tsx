@@ -1,9 +1,9 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import styles from './card-modal.module.css';
 import { supabase } from '@/lib/supabase-browser';
 import type { Card } from '@/lib/types';
-import './card-modal.css';
 
 type Comment = { id: string; card_id: string; author_id: string; body: string; created_at: string };
 type Props = { card: Card; onClose: () => void; onSaved: (card: Card) => void; onDeleted: (cardId: string) => void };
@@ -54,18 +54,18 @@ export default function CardModal({ card, onClose, onSaved, onDeleted }: Props) 
     onDeleted(card.id);
   }
 
-  return <div className="modal-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}>
-    <section className="card-modal" role="dialog" aria-modal="true" aria-label="Aufgabe bearbeiten">
-      <div className="modal-head"><div><p className="eyebrow">Aufgabe</p><h2>Aufgabe bearbeiten</h2></div><button className="modal-close" onClick={onClose} aria-label="Schließen">×</button></div>
-      <div className="modal-grid"><div className="modal-main">
-        <label className="field"><span>Titel</span><input value={title} onChange={(e) => setTitle(e.target.value)} /></label>
-        <label className="field"><span>Beschreibung</span><textarea rows={6} value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Was soll erledigt werden?" /></label>
-        <div className="modal-actions"><button className="primary" onClick={save} disabled={saving || !title.trim()}>{saving ? 'Speichern …' : 'Änderungen speichern'}</button><button className="danger" onClick={deleteCard} disabled={deleting}>{deleting ? 'Löschen …' : 'Aufgabe löschen'}</button></div>
-      </div><aside className="modal-side"><label className="field"><span>Fällig am</span><input type="date" value={dueAt} onChange={(e) => setDueAt(e.target.value)} /></label><div className="detail-box"><span>Status</span><strong>Wird über die Kanban-Spalte gesteuert</strong></div></aside></div>
-      <div className="comments"><div className="comments-head"><h3>Kommentare</h3><span>{comments.length}</span></div>
-        {loadingComments ? <p className="muted">Kommentare werden geladen …</p> : comments.length === 0 ? <p className="muted">Noch keine Kommentare.</p> : <div className="comment-list">{comments.map((item) => <article className="comment" key={item.id}><div className="comment-meta">{item.author_id === card.created_by ? 'Ersteller' : 'Teammitglied'} · {new Date(item.created_at).toLocaleString('de-DE')}</div><div>{item.body}</div></article>)}</div>}
-        <div className="comment-form"><textarea rows={3} value={comment} onChange={(e) => setComment(e.target.value)} placeholder="Kommentar schreiben …" /><button className="ghost" onClick={addComment} disabled={!comment.trim()}>Kommentar hinzufügen</button></div>
-      </div>{notice && <div className="notice modal-notice">{notice}<button onClick={() => setNotice('')}>×</button></div>}
+  return <div className={styles.backdrop} onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}>
+    <section className={styles.modal} role="dialog" aria-modal="true" aria-label="Aufgabe bearbeiten">
+      <div className={styles.head}><div><p className="eyebrow">Aufgabe</p><h2>Aufgabe bearbeiten</h2></div><button className={styles.close} onClick={onClose} aria-label="Schließen">×</button></div>
+      <div className={styles.grid}><div className={styles.main}>
+        <label className={styles.field}><span>Titel</span><input value={title} onChange={(e) => setTitle(e.target.value)} /></label>
+        <label className={styles.field}><span>Beschreibung</span><textarea rows={6} value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Was soll erledigt werden?" /></label>
+        <div className={styles.actions}><button className="primary" onClick={save} disabled={saving || !title.trim()}>{saving ? 'Speichern …' : 'Änderungen speichern'}</button><button className={styles.danger} onClick={deleteCard} disabled={deleting}>{deleting ? 'Löschen …' : 'Aufgabe löschen'}</button></div>
+      </div><aside className={styles.side}><label className={styles.field}><span>Fällig am</span><input type="date" value={dueAt} onChange={(e) => setDueAt(e.target.value)} /></label><div className={styles.detailBox}><span>Status</span><strong>Wird über die Kanban-Spalte gesteuert</strong></div></aside></div>
+      <div className={styles.comments}><div className={styles.commentsHead}><h3>Kommentare</h3><span>{comments.length}</span></div>
+        {loadingComments ? <p className={styles.muted}>Kommentare werden geladen …</p> : comments.length === 0 ? <p className={styles.muted}>Noch keine Kommentare.</p> : <div className={styles.commentList}>{comments.map((item) => <article className={styles.comment} key={item.id}><div className={styles.commentMeta}>{item.author_id === card.created_by ? 'Ersteller' : 'Teammitglied'} · {new Date(item.created_at).toLocaleString('de-DE')}</div><div>{item.body}</div></article>)}</div>}
+        <div className={styles.commentForm}><textarea rows={3} value={comment} onChange={(e) => setComment(e.target.value)} placeholder="Kommentar schreiben …" /><button className="ghost" onClick={addComment} disabled={!comment.trim()}>Kommentar hinzufügen</button></div>
+      </div>{notice && <div className={styles.notice}><div className="notice">{notice}<button onClick={() => setNotice('')}>×</button></div></div>}
     </section>
   </div>;
 }
