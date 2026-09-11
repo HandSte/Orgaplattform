@@ -1,5 +1,7 @@
 export type BoardRole = 'owner' | 'admin' | 'member' | 'viewer';
 
+export type CardPriority = 'low' | 'normal' | 'high' | 'urgent';
+
 export type Board = {
   id: string;
   name: string;
@@ -30,6 +32,7 @@ export type Card = {
   title: string;
   description: string | null;
   position: number;
+  priority: CardPriority;
   assignee_id: string | null;
   due_at: string | null;
   created_by: string | null;
