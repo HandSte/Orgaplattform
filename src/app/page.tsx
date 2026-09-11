@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
+import CardModal from '@/components/CardModal';
 import { supabase, supabaseConfigured } from '@/lib/supabase-browser';
 import type { Board, Card, List } from '@/lib/types';
 
@@ -16,6 +17,7 @@ export default function Home() {
   const [lists, setLists] = useState<List[]>([]);
   const [cards, setCards] = useState<Card[]>([]);
   const [selectedBoard, setSelectedBoard] = useState<string | null>(null);
+  const [selectedCard, setSelectedCard] = useState<Card | null>(null);
   const [loading, setLoading] = useState(supabaseConfigured);
   const [notice, setNotice] = useState('');
   const [draggedCardId, setDraggedCardId] = useState<string | null>(null);
@@ -94,8 +96,9 @@ export default function Home() {
     if (!title?.trim()) return;
     const listCards = cards.filter((card) => card.list_id === listId);
     const position = listCards.length ? Math.max(...listCards.map((card) => card.position)) + 1 : 0;
-    const { error } = await supabase.from('cards').insert({ list_id: listId, title: title.trim(), position });
-    if (error) setNotice(error.message); else if (activeBoard) loadBoardContent(activeBoard.id);
+    const { data, error } = await supabase.from('cards').insert({ list_id: listId, title: title.trim(), position }).select().single();
+    if (error) setNotice(error.message);
+    else { setCards((current) => [...current, data as Card]); if (activeBoard) loadBoardContent(activeBoard.id); }
   }
 
   async function addList() {
@@ -112,24 +115,25 @@ export default function Home() {
     if (!card) return;
     const targetCards = cards.filter((item) => item.list_id === targetListId && item.id !== cardId);
     const targetPosition = targetCards.length ? Math.max(...targetCards.map((item) => item.position)) + 1 : 0;
-    if (card.list_id === targetListId) {
-      setDraggedCardId(null);
-      setDragOverListId(null);
-      return;
-    }
-
+    if (card.list_id === targetListId) { setDraggedCardId(null); setDragOverListId(null); return; }
     setMovingCard(true);
     setCards((current) => current.map((item) => item.id === cardId ? { ...item, list_id: targetListId, position: targetPosition } : item));
     const { error } = await supabase.from('cards').update({ list_id: targetListId, position: targetPosition }).eq('id', cardId);
     if (error) {
       setNotice(`Aufgabe konnte nicht verschoben werden: ${error.message}`);
       if (activeBoard) await loadBoardContent(activeBoard.id);
-    } else if (activeBoard) {
-      await loadBoardContent(activeBoard.id);
-    }
-    setMovingCard(false);
-    setDraggedCardId(null);
-    setDragOverListId(null);
+    } else if (activeBoard) await loadBoardContent(activeBoard.id);
+    setMovingCard(false); setDraggedCardId(null); setDragOverListId(null);
+  }
+
+  function updateCard(updated: Card) {
+    setCards((current) => current.map((item) => item.id === updated.id ? updated : item));
+    setSelectedCard(updated);
+  }
+
+  function deleteCard(cardId: string) {
+    setCards((current) => current.filter((item) => item.id !== cardId));
+    setSelectedCard(null);
   }
 
   async function signOut() { if (supabase) await supabase.auth.signOut(); setUserEmail(null); }
@@ -154,10 +158,11 @@ export default function Home() {
           {supabaseConfigured && !userEmail ? <div className="empty-state"><h3>Bereit für dein erstes Board</h3><p>Melde dich an oder registriere dich, um Boards dauerhaft in Supabase zu speichern.</p><a className="primary button-link" href="/auth">Jetzt starten</a></div>
           : supabaseConfigured && loading ? <div className="empty-state"><h3>Daten werden geladen …</h3></div>
           : supabaseConfigured && !activeBoard ? <div className="empty-state"><h3>Noch kein Board vorhanden</h3><p>Erstelle oben dein erstes Projektboard.</p><button className="primary" onClick={createBoard}>+ Erstes Board erstellen</button></div>
-          : supabaseConfigured ? <div className="kanban">{activeLists.map((list) => <div className={`column ${dragOverListId === list.id ? 'drag-over' : ''}`} key={list.id} onDragOver={(event) => { event.preventDefault(); event.dataTransfer.dropEffect = 'move'; setDragOverListId(list.id); }} onDragEnter={(event) => { event.preventDefault(); setDragOverListId(list.id); }} onDragLeave={(event) => { if (event.currentTarget === event.target) setDragOverListId(null); }} onDrop={(event) => { event.preventDefault(); const cardId = event.dataTransfer.getData('text/plain') || draggedCardId; if (cardId) moveCard(cardId, list.id); }}><div className="column-head"><span>{list.name}</span><span className="count">{activeCards.filter((c) => c.list_id === list.id).length}</span></div>{activeCards.filter((c) => c.list_id === list.id).map((card) => <article className={`card ${draggedCardId === card.id ? 'dragging' : ''}`} key={card.id} draggable onDragStart={(event) => { setDraggedCardId(card.id); event.dataTransfer.effectAllowed = 'move'; event.dataTransfer.setData('text/plain', card.id); }} onDragEnd={() => { setDraggedCardId(null); setDragOverListId(null); }}><div className="card-title">{card.title}</div><div className="card-meta"><span>Aufgabe</span><span>⋯</span></div></article>)}<button className="add-card" onClick={() => addCard(list.id)} disabled={movingCard}>+ Aufgabe hinzufügen</button></div>)}<div className="column-add"><button className="add-card" onClick={addList}>+ Liste hinzufügen</button></div></div>
+          : supabaseConfigured ? <div className="kanban">{activeLists.map((list) => <div className={`column ${dragOverListId === list.id ? 'drag-over' : ''}`} key={list.id} onDragOver={(event) => { event.preventDefault(); event.dataTransfer.dropEffect = 'move'; setDragOverListId(list.id); }} onDragEnter={(event) => { event.preventDefault(); setDragOverListId(list.id); }} onDragLeave={(event) => { if (event.currentTarget === event.target) setDragOverListId(null); }} onDrop={(event) => { event.preventDefault(); const cardId = event.dataTransfer.getData('text/plain') || draggedCardId; if (cardId) moveCard(cardId, list.id); }}><div className="column-head"><span>{list.name}</span><span className="count">{activeCards.filter((c) => c.list_id === list.id).length}</span></div>{activeCards.filter((c) => c.list_id === list.id).map((card) => <article className={`card ${draggedCardId === card.id ? 'dragging' : ''}`} key={card.id} draggable onClick={() => { if (!movingCard) setSelectedCard(card); }} onDragStart={(event) => { setDraggedCardId(card.id); event.dataTransfer.effectAllowed = 'move'; event.dataTransfer.setData('text/plain', card.id); }} onDragEnd={() => { setDraggedCardId(null); setDragOverListId(null); }}><div className="card-title">{card.title}</div><div className="card-meta"><span>{card.due_at ? `Fällig: ${new Date(card.due_at).toLocaleDateString('de-DE')}` : 'Aufgabe'}</span><span>⋯</span></div></article>)}<button className="add-card" onClick={() => addCard(list.id)} disabled={movingCard}>+ Aufgabe hinzufügen</button></div>)}<div className="column-add"><button className="add-card" onClick={addList}>+ Liste hinzufügen</button></div></div>
           : <div className="kanban">{demoColumns.map((column) => <div className="column" key={column.title}><div className="column-head"><span>{column.title}</span><span className="count">{column.cards.length}</span></div>{column.cards.map((card, index) => <article className="card" key={card}><div className="card-title">{card}</div><div className="card-meta"><span>Aufgabe</span><span>⋯</span></div>{index === 0 && <div className="progress"><i /></div>}</article>)}<button className="add-card">+ Aufgabe hinzufügen</button></div>)}</div>}
         </section>
       </section>
+      {selectedCard && <CardModal card={selectedCard} onClose={() => setSelectedCard(null)} onSaved={updateCard} onDeleted={deleteCard} />}
     </main>
   );
 }
