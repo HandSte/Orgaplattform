@@ -6,13 +6,11 @@ import { supabase } from '@/lib/supabase-browser';
 import type { Card, CardPriority } from '@/lib/types';
 
 type Comment = { id: string; card_id: string; author_id: string; body: string; created_at: string };
+type Member = { user_id: string; role: string; profile?: { full_name: string | null; avatar_url: string | null } | null };
 type Props = { card: Card; onClose: () => void; onSaved: (card: Card) => void; onDeleted: (cardId: string) => void };
 
 const priorityOptions: { value: CardPriority; label: string }[] = [
-  { value: 'low', label: 'Niedrig' },
-  { value: 'normal', label: 'Normal' },
-  { value: 'high', label: 'Hoch' },
-  { value: 'urgent', label: 'Dringend' },
+  { value: 'low', label: 'Niedrig' }, { value: 'normal', label: 'Normal' }, { value: 'high', label: 'Hoch' }, { value: 'urgent', label: 'Dringend' },
 ];
 
 export default function CardModal({ card, onClose, onSaved, onDeleted }: Props) {
@@ -20,11 +18,14 @@ export default function CardModal({ card, onClose, onSaved, onDeleted }: Props) 
   const [description, setDescription] = useState(card.description ?? '');
   const [dueAt, setDueAt] = useState(card.due_at ? card.due_at.slice(0, 10) : '');
   const [priority, setPriority] = useState<CardPriority>(card.priority ?? 'normal');
+  const [assigneeId, setAssigneeId] = useState(card.assignee_id ?? '');
+  const [members, setMembers] = useState<Member[]>([]);
   const [comments, setComments] = useState<Comment[]>([]);
   const [comment, setComment] = useState('');
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [loadingComments, setLoadingComments] = useState(true);
+  const [loadingMembers, setLoadingMembers] = useState(true);
   const [notice, setNotice] = useState('');
 
   async function loadComments() {
@@ -35,12 +36,24 @@ export default function CardModal({ card, onClose, onSaved, onDeleted }: Props) 
     setComments(data ?? []);
     setLoadingComments(false);
   }
-  useEffect(() => { loadComments(); }, [card.id]);
+
+  async function loadMembers() {
+    if (!supabase) return;
+    setLoadingMembers(true);
+    const { data: list, error: listError } = await supabase.from('lists').select('board_id').eq('id', card.list_id).single();
+    if (listError || !list) { setNotice(listError?.message ?? 'Board konnte nicht ermittelt werden.'); setLoadingMembers(false); return; }
+    const { data, error } = await supabase.from('board_members').select('user_id,role,profiles!board_members_user_id_fkey(full_name,avatar_url)').eq('board_id', list.board_id).order('created_at', { ascending: true });
+    if (error) setNotice(error.message);
+    setMembers((data ?? []) as unknown as Member[]);
+    setLoadingMembers(false);
+  }
+
+  useEffect(() => { loadComments(); loadMembers(); }, [card.id, card.list_id]);
 
   async function save() {
     if (!supabase || !title.trim()) return;
     setSaving(true);
-    const { data, error } = await supabase.from('cards').update({ title: title.trim(), description: description.trim() || null, due_at: dueAt ? `${dueAt}T23:59:59Z` : null, priority }).eq('id', card.id).select().single();
+    const { data, error } = await supabase.from('cards').update({ title: title.trim(), description: description.trim() || null, due_at: dueAt ? `${dueAt}T23:59:59Z` : null, priority, assignee_id: assigneeId || null }).eq('id', card.id).select().single();
     if (error || !data) setNotice(error?.message ?? 'Aufgabe konnte nicht gespeichert werden.'); else onSaved(data as Card);
     setSaving(false);
   }
@@ -70,6 +83,7 @@ export default function CardModal({ card, onClose, onSaved, onDeleted }: Props) 
         <label className={styles.field}><span>Beschreibung</span><textarea rows={6} value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Was soll erledigt werden?" /></label>
         <div className={styles.actions}><button className="primary" onClick={save} disabled={saving || !title.trim()}>{saving ? 'Speichern …' : 'Änderungen speichern'}</button><button className={styles.danger} onClick={deleteCard} disabled={deleting}>{deleting ? 'Löschen …' : 'Aufgabe löschen'}</button></div>
       </div><aside className={styles.side}>
+        <label className={styles.field}><span>Zuständig</span><select value={assigneeId} onChange={(e) => setAssigneeId(e.target.value)} disabled={loadingMembers}><option value="">Niemand zugewiesen</option>{members.map((member) => <option key={member.user_id} value={member.user_id}>{member.profile?.full_name || `Teammitglied ${member.user_id.slice(0, 6)}`}</option>)}</select></label>
         <label className={styles.field}><span>Priorität</span><select value={priority} onChange={(e) => setPriority(e.target.value as CardPriority)}>{priorityOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select></label>
         <label className={styles.field}><span>Fällig am</span><input type="date" value={dueAt} onChange={(e) => setDueAt(e.target.value)} /></label>
         <div className={styles.detailBox}><span>Status</span><strong>Wird über die Kanban-Spalte gesteuert</strong></div>
