@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
+import './boards.css';
 import { supabase, supabaseConfigured } from '@/lib/supabase-browser';
 import type { Board, List } from '@/lib/types';
 
