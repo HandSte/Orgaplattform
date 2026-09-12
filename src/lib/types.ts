@@ -39,3 +39,14 @@ export type Card = {
   created_at: string;
   updated_at: string;
 };
+
+export type CardChecklistItem = {
+  id: string;
+  card_id: string;
+  title: string;
+  completed: boolean;
+  position: number;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+};
