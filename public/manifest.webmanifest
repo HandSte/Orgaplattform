@@ -1,0 +1,12 @@
+{
+  "name": "Orgaplattform",
+  "short_name": "Orgaplattform",
+  "description": "Professionelle, kollaborative Organisationsplattform",
+  "lang": "de-DE",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "any",
+  "theme_color": "#111827",
+  "background_color": "#f8fafc"
+}
