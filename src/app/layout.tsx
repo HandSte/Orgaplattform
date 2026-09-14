@@ -5,6 +5,10 @@ export const metadata: Metadata = {
   title: 'Orgaplattform',
   description: 'Professionelle, kollaborative Organisationsplattform',
   manifest: '/manifest.webmanifest',
+  icons: {
+    icon: '/app-icon.svg',
+    apple: '/app-icon.svg',
+  },
   appleWebApp: { capable: true, title: 'Orgaplattform', statusBarStyle: 'default' },
 };
 
