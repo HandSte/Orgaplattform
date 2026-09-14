@@ -8,5 +8,13 @@
   "display": "standalone",
   "orientation": "any",
   "theme_color": "#111827",
-  "background_color": "#f8fafc"
+  "background_color": "#f8fafc",
+  "icons": [
+    {
+      "src": "/app-icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
 }
