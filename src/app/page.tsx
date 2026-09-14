@@ -62,6 +62,7 @@ export default function Home() {
     return activeCards.filter((card) => {
       const matchesSearch = !query || `${card.title} ${card.description ?? ''} ${priorityLabels[card.priority ?? 'normal']} ${profiles.find((p) => p.id === card.assignee_id)?.full_name ?? ''}`.toLowerCase().includes(query);
       if (!matchesSearch) return false;
+      if (filter === 'all') return true;
       if (filter === 'high') return card.priority === 'high' || card.priority === 'urgent';
       if (!card.due_at) return false;
       const due = new Date(card.due_at);
