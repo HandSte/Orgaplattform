@@ -15,7 +15,8 @@ export default function CardCollaboration({ supabase, cardId, userId }: Props) {
   const [newItem, setNewItem] = useState('');
   const [newComment, setNewComment] = useState('');
   const [busy, setBusy] = useState(false);
-  const [canEdit, setCanEdit] = useState(true);
+  const [canEdit, setCanEdit] = useState(false);
+  const [roleResolved, setRoleResolved] = useState(false);
 
   async function load() {
     const [checklist, commentRows, attachmentRows] = await Promise.all([
@@ -30,13 +31,19 @@ export default function CardCollaboration({ supabase, cardId, userId }: Props) {
 
   useEffect(() => {
     let alive = true;
+    setRoleResolved(false);
+    setCanEdit(false);
     void (async () => {
-      const result = await supabase.from('cards').select('list_id,lists!inner(board_id)').eq('id', cardId).single();
-      const boardId = (result.data as { lists?: { board_id?: string } } | null)?.lists?.board_id;
+      const cardResult = await supabase.from('cards').select('list_id').eq('id', cardId).single();
+      if (cardResult.error || !cardResult.data) { if (alive) setRoleResolved(true); return; }
+      const listResult = await supabase.from('lists').select('board_id').eq('id', cardResult.data.list_id).single();
+      const boardId = listResult.data?.board_id;
       if (!alive) return;
-      if (boardId) {
-        const membership = await supabase.from('board_members').select('role').eq('board_id', boardId).eq('user_id', userId).single();
-        if (alive) setCanEdit(['owner', 'admin', 'member'].includes(String(membership.data?.role ?? 'viewer')));
+      if (!boardId) { setRoleResolved(true); return; }
+      const membership = await supabase.from('board_members').select('role').eq('board_id', boardId).eq('user_id', userId).single();
+      if (alive) {
+        setCanEdit(['owner', 'admin', 'member'].includes(String(membership.data?.role ?? 'viewer')));
+        setRoleResolved(true);
       }
     })();
     void load();
@@ -46,7 +53,7 @@ export default function CardCollaboration({ supabase, cardId, userId }: Props) {
       .on('postgres_changes', { event: '*', schema: 'public', table: 'card_attachments', filter: `card_id=eq.${cardId}` }, () => void load())
       .subscribe();
     return () => { alive = false; void supabase.removeChannel(channel); };
-  }, [cardId, userId]);
+  }, [cardId, userId, supabase]);
 
   async function addChecklistItem() {
     const title = newItem.trim(); if (!title || busy || !canEdit) return;
@@ -54,7 +61,7 @@ export default function CardCollaboration({ supabase, cardId, userId }: Props) {
     const position = items.length ? Math.max(...items.map(item => Number(item.position) || 0)) + 1 : 0;
     const { data, error } = await supabase.from('card_checklist_items').insert({ card_id: cardId, title, completed: false, position, created_by: userId }).select('id,card_id,title,completed,position').single();
     setBusy(false);
-    if (error) Alert.alert('Punkt hinzufügen', error.message); else { setItems(current => [...current, data as ChecklistItem]); setNewItem(''); }
+    if (error) Alert.alert('Punkt hinzufügen', error.message); else { setItems(current => current.some(item => item.id === data?.id) ? current : [...current, data as ChecklistItem]); setNewItem(''); }
   }
 
   async function toggleItem(item: ChecklistItem) {
@@ -73,7 +80,7 @@ export default function CardCollaboration({ supabase, cardId, userId }: Props) {
     setBusy(true);
     const { data, error } = await supabase.from('card_comments').insert({ card_id: cardId, author_id: userId, body }).select('id,card_id,author_id,body,created_at').single();
     setBusy(false);
-    if (error) Alert.alert('Kommentar', error.message); else { setComments(current => [...current, data as Comment]); setNewComment(''); }
+    if (error) Alert.alert('Kommentar', error.message); else { setComments(current => current.some(comment => comment.id === data?.id) ? current : [...current, data as Comment]); setNewComment(''); }
   }
 
   async function addAttachment() {
@@ -82,9 +89,11 @@ export default function CardCollaboration({ supabase, cardId, userId }: Props) {
     if (picked.canceled || !picked.assets?.[0]) return;
     const file = picked.assets[0]; setBusy(true);
     try {
-      const cardResult = await supabase.from('cards').select('list_id,lists!inner(board_id)').eq('id', cardId).single();
-      const boardId = (cardResult.data as { lists?: { board_id?: string } } | null)?.lists?.board_id;
-      if (cardResult.error || !boardId) throw new Error(cardResult.error?.message ?? 'Board des Anhangs konnte nicht ermittelt werden.');
+      const cardResult = await supabase.from('cards').select('list_id').eq('id', cardId).single();
+      if (cardResult.error || !cardResult.data) throw new Error(cardResult.error?.message ?? 'Karte konnte nicht ermittelt werden.');
+      const listResult = await supabase.from('lists').select('board_id').eq('id', cardResult.data.list_id).single();
+      const boardId = listResult.data?.board_id;
+      if (listResult.error || !boardId) throw new Error(listResult.error?.message ?? 'Board des Anhangs konnte nicht ermittelt werden.');
       const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
       const path = `${boardId}/${cardId}/${Date.now()}-${safeName}`;
       const body = await (await fetch(file.uri)).arrayBuffer();
@@ -92,7 +101,7 @@ export default function CardCollaboration({ supabase, cardId, userId }: Props) {
       if (upload.error) throw upload.error;
       const insert = await supabase.from('card_attachments').insert({ card_id: cardId, uploader_id: userId, storage_path: path, file_name: file.name, mime_type: file.mimeType ?? null, size_bytes: file.size ?? null }).select('id,card_id,storage_path,file_name,mime_type,size_bytes,created_at').single();
       if (insert.error) { await supabase.storage.from('card-attachments').remove([path]); throw insert.error; }
-      if (insert.data) setAttachments(current => [insert.data as Attachment, ...current]);
+      if (insert.data) setAttachments(current => current.some(item => item.id === insert.data.id) ? current : [insert.data as Attachment, ...current]);
     } catch (error) { Alert.alert('Anhang hinzufügen', error instanceof Error ? error.message : 'Unbekannter Fehler.'); }
     finally { setBusy(false); }
   }
@@ -100,7 +109,7 @@ export default function CardCollaboration({ supabase, cardId, userId }: Props) {
   async function openAttachment(attachment: Attachment) {
     const { data, error } = await supabase.storage.from('card-attachments').createSignedUrl(attachment.storage_path, 600);
     if (error || !data?.signedUrl) { Alert.alert('Anhang öffnen', error?.message ?? 'Link konnte nicht erstellt werden.'); return; }
-    await Linking.openURL(data.signedUrl);
+    try { await Linking.openURL(data.signedUrl); } catch { Alert.alert('Anhang öffnen', 'Der Anhang konnte auf diesem Gerät nicht geöffnet werden.'); }
   }
 
   function removeAttachment(attachment: Attachment) {
@@ -114,19 +123,20 @@ export default function CardCollaboration({ supabase, cardId, userId }: Props) {
   }
 
   const sizeLabel = (bytes: number | null) => bytes == null ? '' : bytes < 1024 * 1024 ? `${Math.max(1, Math.round(bytes / 1024))} KB` : `${(bytes / 1024 / 1024).toFixed(1)} MB`;
+  const ready = roleResolved;
 
   return <View style={styles.container}>
     <Text style={styles.sectionTitle}>Checkliste</Text>
     {items.map(item => <View key={item.id} style={styles.itemRow}><Pressable style={[styles.checkbox, item.completed && styles.checkboxDone, !canEdit && styles.disabled]} onPress={() => void toggleItem(item)} disabled={!canEdit}><Text style={styles.check}>{item.completed ? '✓' : ''}</Text></Pressable><Text style={[styles.itemText, item.completed && styles.itemDone]}>{item.title}</Text>{canEdit ? <Pressable onPress={() => removeItem(item)}><Text style={styles.remove}>×</Text></Pressable> : null}</View>)}
-    {canEdit ? <View style={styles.addRow}><TextInput style={styles.smallInput} placeholder="Neuer Checklistenpunkt" value={newItem} onChangeText={setNewItem} onSubmitEditing={() => void addChecklistItem()} returnKeyType="done" /><Pressable style={styles.smallButton} onPress={() => void addChecklistItem()} disabled={busy}><Text style={styles.smallButtonText}>+</Text></Pressable></View> : <Text style={styles.muted}>Nur-Lesen-Modus</Text>}
+    {!ready ? <Text style={styles.muted}>Berechtigungen werden geprüft …</Text> : canEdit ? <View style={styles.addRow}><TextInput style={styles.smallInput} placeholder="Neuer Checklistenpunkt" value={newItem} onChangeText={setNewItem} onSubmitEditing={() => void addChecklistItem()} returnKeyType="done" /><Pressable style={styles.smallButton} onPress={() => void addChecklistItem()} disabled={busy}><Text style={styles.smallButtonText}>+</Text></Pressable></View> : <Text style={styles.muted}>Nur-Lesen-Modus</Text>}
 
     <Text style={[styles.sectionTitle, styles.attachTitle]}>Anhänge</Text>
     {attachments.map(attachment => <View key={attachment.id} style={styles.attachment}><Pressable style={styles.attachmentMain} onPress={() => void openAttachment(attachment)}><Text style={styles.attachmentName} numberOfLines={1}>{attachment.file_name}</Text><Text style={styles.commentMeta}>{attachment.mime_type ?? 'Datei'} {sizeLabel(attachment.size_bytes) ? `· ${sizeLabel(attachment.size_bytes)}` : ''}</Text></Pressable>{canEdit ? <Pressable onPress={() => removeAttachment(attachment)}><Text style={styles.remove}>×</Text></Pressable> : null}</View>)}
-    {canEdit ? <Pressable style={styles.secondaryButton} onPress={() => void addAttachment()} disabled={busy}><Text style={styles.secondaryButtonText}>{busy ? 'Bitte warten …' : '＋ Anhang hinzufügen'}</Text></Pressable> : null}
+    {ready && canEdit ? <Pressable style={styles.secondaryButton} onPress={() => void addAttachment()} disabled={busy}><Text style={styles.secondaryButtonText}>{busy ? 'Bitte warten …' : '＋ Anhang hinzufügen'}</Text></Pressable> : null}
 
     <Text style={[styles.sectionTitle, styles.commentsTitle]}>Kommentare</Text>
     {comments.map(comment => <View key={comment.id} style={styles.comment}><Text style={styles.commentMeta}>{comment.author_id === userId ? 'Du' : 'Teammitglied'} · {new Date(comment.created_at).toLocaleString('de-DE')}</Text><Text style={styles.commentBody}>{comment.body}</Text></View>)}
-    {canEdit ? <View style={styles.commentComposer}><TextInput style={[styles.smallInput, styles.commentInput]} placeholder="Kommentar schreiben …" value={newComment} onChangeText={setNewComment} multiline /><Pressable style={styles.primary} onPress={() => void addComment()} disabled={busy}><Text style={styles.primaryText}>Senden</Text></Pressable></View> : null}
+    {ready && canEdit ? <View style={styles.commentComposer}><TextInput style={[styles.smallInput, styles.commentInput]} placeholder="Kommentar schreiben …" value={newComment} onChangeText={setNewComment} multiline /><Pressable style={styles.primary} onPress={() => void addComment()} disabled={busy}><Text style={styles.primaryText}>Senden</Text></Pressable></View> : null}
   </View>;
 }
 
