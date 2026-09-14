@@ -12,6 +12,7 @@
     "@react-native-async-storage/async-storage": "latest",
     "@supabase/supabase-js": "latest",
     "expo": "latest",
+    "expo-document-picker": "latest",
     "expo-status-bar": "latest",
     "react": "latest",
     "react-native": "latest"
