@@ -1,5 +1,5 @@
-const CACHE_NAME = 'orgaplattform-shell-v1';
-const APP_SHELL = ['/', '/manifest.webmanifest'];
+const CACHE_NAME = 'orgaplattform-shell-v2';
+const APP_SHELL = ['/', '/manifest.webmanifest', '/app-icon.svg'];
 
 self.addEventListener('install', (event) => {
   event.waitUntil(caches.open(CACHE_NAME).then((cache) => cache.addAll(APP_SHELL)));
