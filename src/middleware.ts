@@ -12,7 +12,6 @@ export async function middleware(request: NextRequest) {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
-  // Keep the public setup experience available when environment variables are not configured yet.
   if (!supabaseUrl || !supabaseAnonKey) return NextResponse.next();
 
   let response = NextResponse.next({ request });
@@ -38,9 +37,7 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(url);
   }
 
-  if (user && pathname === '/auth') {
-    return NextResponse.redirect(new URL('/', request.url));
-  }
+  if (user && pathname === '/auth') return NextResponse.redirect(new URL('/', request.url));
 
   return response;
 }
