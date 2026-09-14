@@ -1,5 +1,6 @@
 import { StatusBar } from 'expo-status-bar';
-import { useEffect, useMemo, useState } from 'react';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Alert, Modal, Pressable, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 
@@ -10,7 +11,14 @@ type SessionUser = { id: string; email?: string | null };
 
 const url = process.env.EXPO_PUBLIC_SUPABASE_URL;
 const key = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
-const supabase: SupabaseClient | null = url && key ? createClient(url, key) : null;
+const supabase: SupabaseClient | null = url && key ? createClient(url, key, {
+  auth: {
+    storage: AsyncStorage,
+    autoRefreshToken: true,
+    persistSession: true,
+    detectSessionInUrl: false,
+  },
+}) : null;
 
 export default function App() {
   const [user, setUser] = useState<SessionUser | null>(null);
@@ -18,6 +26,7 @@ export default function App() {
   const [authMode, setAuthMode] = useState<'login' | 'signup'>('login'); const [authBusy, setAuthBusy] = useState(false); const [message, setMessage] = useState('');
   const [boards, setBoards] = useState<Board[]>([]); const [lists, setLists] = useState<List[]>([]); const [cards, setCards] = useState<Card[]>([]); const [selectedBoard, setSelectedBoard] = useState<string | null>(null); const [loadingBoard, setLoadingBoard] = useState(false);
   const [editingCard, setEditingCard] = useState<Card | null>(null); const [cardTitle, setCardTitle] = useState(''); const [cardDescription, setCardDescription] = useState(''); const [cardPriority, setCardPriority] = useState('normal'); const [savingCard, setSavingCard] = useState(false);
+  const listIdsRef = useRef<Set<string>>(new Set());
 
   useEffect(() => {
     if (!supabase) return;
@@ -39,23 +48,43 @@ export default function App() {
 
   useEffect(() => {
     if (!supabase || !selectedBoard || !user) return;
-    let alive = true; setLoadingBoard(true);
+    let alive = true; setLoadingBoard(true); listIdsRef.current = new Set();
     void (async () => {
       const { data, error } = await supabase.rpc('get_board_snapshot', { p_board_id: selectedBoard });
       if (!alive) return;
-      if (error) setMessage(error.message);
+      if (error) { setMessage(error.message); setLists([]); setCards([]); setLoadingBoard(false); return; }
       const snapshot = data as { lists?: List[]; cards?: Card[] } | null;
-      setLists(snapshot?.lists ?? []); setCards(snapshot?.cards ?? []); setLoadingBoard(false);
+      const nextLists = snapshot?.lists ?? [];
+      listIdsRef.current = new Set(nextLists.map(list => list.id));
+      setLists(nextLists); setCards(snapshot?.cards ?? []); setLoadingBoard(false);
     })();
     const channel = supabase.channel(`mobile-board-${selectedBoard}`)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'lists', filter: `board_id=eq.${selectedBoard}` }, payload => {
-        if (payload.eventType === 'INSERT') setLists(v => v.some(x => x.id === payload.new.id) ? v : [...v, payload.new as List]);
+        if (payload.eventType === 'INSERT') {
+          const list = payload.new as List;
+          listIdsRef.current.add(list.id);
+          setLists(v => v.some(x => x.id === list.id) ? v : [...v, list]);
+        }
         if (payload.eventType === 'UPDATE') setLists(v => v.map(x => x.id === payload.new.id ? payload.new as List : x));
-        if (payload.eventType === 'DELETE') setLists(v => v.filter(x => x.id !== payload.old.id));
+        if (payload.eventType === 'DELETE') {
+          listIdsRef.current.delete(payload.old.id as string);
+          setLists(v => v.filter(x => x.id !== payload.old.id));
+          setCards(v => v.filter(x => x.list_id !== payload.old.id));
+        }
       })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'cards' }, payload => {
-        if (payload.eventType === 'INSERT') setCards(v => v.some(x => x.id === payload.new.id) ? v : [...v, payload.new as Card]);
-        if (payload.eventType === 'UPDATE') setCards(v => v.map(x => x.id === payload.new.id ? payload.new as Card : x));
+        if (payload.eventType === 'INSERT') {
+          const card = payload.new as Card;
+          if (!listIdsRef.current.has(card.list_id)) return;
+          setCards(v => v.some(x => x.id === card.id) ? v : [...v, card]);
+        }
+        if (payload.eventType === 'UPDATE') {
+          const card = payload.new as Card;
+          const belongs = listIdsRef.current.has(card.list_id);
+          setCards(v => belongs
+            ? (v.some(x => x.id === card.id) ? v.map(x => x.id === card.id ? card : x) : [...v, card])
+            : v.filter(x => x.id !== card.id));
+        }
         if (payload.eventType === 'DELETE') setCards(v => v.filter(x => x.id !== payload.old.id));
       }).subscribe();
     return () => { alive = false; void supabase.removeChannel(channel); };
@@ -79,7 +108,9 @@ export default function App() {
       const { data, error } = await supabase.from('cards').update({ title: cardTitle.trim(), description: cardDescription.trim() || null, priority: cardPriority }).eq('id', editingCard.id).select('*').single();
       if (error) Alert.alert('Karte speichern', error.message); else setCards(v => v.map(c => c.id === editingCard.id ? data as Card : c));
     } else {
-      const { data, error } = await supabase.from('cards').insert({ list_id: editingCard.list_id, title: cardTitle.trim(), description: cardDescription.trim() || null, priority: cardPriority, position: editingCard.position }).select('*').single();
+      const positions = cards.filter(card => card.list_id === editingCard.list_id).map(card => Number(card.position) || 0);
+      const nextPosition = Math.max(0, ...positions) + 1;
+      const { data, error } = await supabase.from('cards').insert({ list_id: editingCard.list_id, title: cardTitle.trim(), description: cardDescription.trim() || null, priority: cardPriority, position: nextPosition }).select('*').single();
       if (error) Alert.alert('Karte anlegen', error.message); else if (data) setCards(v => [...v, data as Card]);
     }
     setSavingCard(false); setEditingCard(null);
