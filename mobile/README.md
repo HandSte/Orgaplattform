@@ -2,6 +2,19 @@
 
 Private mobile client for the Orgaplattform. Android and iOS use the same Supabase backend as the web application.
 
+## Current functionality
+
+- Supabase login and persistent session
+- Board and list overview
+- Realtime synchronization of lists and cards
+- Card creation, editing and deletion according to board role
+- Viewer role with enforced read-only UI
+- Card search across title and description
+- Collaborative checklists
+- Card comments
+- Private card attachments with signed access URLs
+- Realtime notification center
+
 ## Development
 
 1. Install a current Node.js version and Expo tooling.
@@ -16,4 +29,4 @@ The mobile app is intended for private/internal distribution. No public App Stor
 
 Android can be distributed directly to the trusted network as an APK. For iPhone/iPad, the final internal distribution method will be chosen during the packaging phase; the web PWA remains available as a store-free fallback.
 
-Never commit `.env` or any private service-role credentials.
+Before packaging, verify the Expo SDK/runtime compatibility of the installed dependency versions and create platform-specific build configuration. Do not commit `.env`, signing credentials, provisioning profiles or any private service-role credentials.
