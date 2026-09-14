@@ -9,6 +9,7 @@
     "ios": "expo start --ios"
   },
   "dependencies": {
+    "@react-native-async-storage/async-storage": "latest",
     "@supabase/supabase-js": "latest",
     "expo": "latest",
     "expo-status-bar": "latest",
