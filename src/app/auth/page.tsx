@@ -3,6 +3,13 @@
 import { FormEvent, useState } from 'react';
 import { supabase } from '@/lib/supabase-browser';
 
+function getSafeNextPath() {
+  if (typeof window === 'undefined') return '/';
+  const next = new URLSearchParams(window.location.search).get('next');
+  if (!next || !next.startsWith('/') || next.startsWith('//') || next.includes('://')) return '/';
+  return next;
+}
+
 export default function AuthPage() {
   const [mode, setMode] = useState<'login' | 'signup'>('login');
   const [email, setEmail] = useState('');
@@ -25,7 +32,7 @@ export default function AuthPage() {
     setBusy(false);
     if (result.error) return setMessage(result.error.message);
     setMessage(mode === 'login' ? 'Anmeldung erfolgreich. Du wirst weitergeleitet.' : 'Konto angelegt. Bitte bestätige ggf. deine E-Mail-Adresse.');
-    if (mode === 'login') window.location.href = '/';
+    if (mode === 'login') window.location.href = getSafeNextPath();
   }
 
   return (
