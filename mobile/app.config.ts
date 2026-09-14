@@ -7,15 +7,18 @@ export default ({ config }: { config: ExpoConfig }): ExpoConfig => ({
   version: '0.1.0',
   orientation: 'default',
   userInterfaceStyle: 'automatic',
-  android: {
-    ...(config.android ?? {}),
-    package: 'de.orgaplattform.mobile',
-  },
+  scheme: 'orgaplattform',
   ios: {
     ...(config.ios ?? {}),
-    bundleIdentifier: 'de.orgaplattform.mobile',
+    supportsTablet: true,
+    bundleIdentifier: 'de.orgaplattform.app',
   },
-  extra: {
-    ...(config.extra ?? {}),
+  android: {
+    ...(config.android ?? {}),
+    package: 'de.orgaplattform.app',
+  },
+  web: {
+    ...(config.web ?? {}),
+    bundler: 'metro',
   },
 });
