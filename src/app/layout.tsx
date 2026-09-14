@@ -5,21 +5,41 @@ export const metadata: Metadata = {
   title: 'Orgaplattform',
   description: 'Professionelle, kollaborative Organisationsplattform',
   manifest: '/manifest.webmanifest',
+  robots: { index: false, follow: false },
   icons: {
     icon: '/app-icon.svg',
     apple: '/app-icon.svg',
   },
+  openGraph: {
+    title: 'Orgaplattform',
+    description: 'Professionelle, kollaborative Organisationsplattform',
+    type: 'website',
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'Orgaplattform',
+    description: 'Professionelle, kollaborative Organisationsplattform',
+  },
   appleWebApp: { capable: true, title: 'Orgaplattform', statusBarStyle: 'default' },
 };
 
-export const viewport: Viewport = { width: 'device-width', initialScale: 1, viewportFit: 'cover' };
+export const viewport: Viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  viewportFit: 'cover',
+  themeColor: '#111827',
+};
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="de">
       <body>
         {children}
-        <script dangerouslySetInnerHTML={{ __html: `if ('serviceWorker' in navigator) { window.addEventListener('load', () => navigator.serviceWorker.register('/sw.js').catch(() => undefined)); }` }} />
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `if ('serviceWorker' in navigator) { window.addEventListener('load', () => navigator.serviceWorker.register('/sw.js').catch(() => undefined)); }`,
+          }}
+        />
       </body>
     </html>
   );
