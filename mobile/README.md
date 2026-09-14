@@ -21,12 +21,16 @@ Private mobile client for the Orgaplattform. Android and iOS use the same Supaba
 2. Copy `.env.example` to `.env`.
 3. Set `EXPO_PUBLIC_SUPABASE_URL` and `EXPO_PUBLIC_SUPABASE_ANON_KEY` to the same public Supabase values used by the web app.
 4. Run `npm install` inside `mobile/`.
-5. Start with `npm run start`.
+5. Run `npm run typecheck` to validate the mobile TypeScript project.
+6. Start with `npm run start` (use `npm run start:clear` after dependency/config changes if the Expo cache is stale).
 
-The mobile app is intended for private/internal distribution. No public App Store or Google Play release is part of the project plan.
+## Internal builds
 
-## Distribution
+The repository contains `app.config.ts` and `eas.json` for internal packaging. Android preview builds are configured as installable APKs; iOS preview builds use internal distribution. These profiles are not public App Store or Google Play releases.
 
-Android can be distributed directly to the trusted network as an APK. For iPhone/iPad, the final internal distribution method will be chosen during the packaging phase; the web PWA remains available as a store-free fallback.
+- Android: `npm run build:android:preview`
+- iOS: `npm run build:ios:preview`
 
-Before packaging, verify the Expo SDK/runtime compatibility of the installed dependency versions and create platform-specific build configuration. Do not commit `.env`, signing credentials, provisioning profiles or any private service-role credentials.
+An Expo/EAS account and the platform signing credentials are required when actually creating a build. Apple provisioning is handled by the normal iOS internal-distribution process. Do not commit `.env`, signing credentials, provisioning profiles or any private service-role credentials.
+
+The web PWA remains available as a store-free fallback.
