@@ -19,6 +19,7 @@
   },
   "devDependencies": {
     "@types/react": "latest",
+    "@types/react-native": "latest",
     "typescript": "latest"
   }
 }
