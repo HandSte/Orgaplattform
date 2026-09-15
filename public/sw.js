@@ -1,4 +1,4 @@
-const CACHE_NAME = 'orgaplattform-shell-v3';
+const CACHE_NAME = 'orgaplattform-shell-v4';
 const APP_SHELL = ['/', '/manifest.webmanifest', '/app-icon.svg'];
 
 self.addEventListener('install', (event) => {
