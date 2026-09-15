@@ -1,6 +1,8 @@
-# Orgaplattform
+# Essentia
 
-Professionelle Kanban-/Projektplattform für Teams. Web-App auf Next.js mit Supabase als gemeinsamem Backend; die Datenbasis ist für spätere Android/iOS-Clients vorbereitet.
+**Alles Wesentliche. Ein Ort.**
+
+Professionelle Kanban-/Projektplattform für Teams. Die Web-App basiert auf Next.js mit Supabase als gemeinsamem Backend; die Datenbasis ist für Android/iOS-Clients vorbereitet.
 
 ## Aktueller Stand
 
@@ -31,10 +33,14 @@ Die Datei `.env.example` enthält die Platzhalter. Niemals Service-Role-Keys ode
 
 ## Deployment
 
-Das Repository `HandSte/Orgaplattform` ist mit dem Vercel-Projekt `orgaplattform` verbunden. Commits auf `main` können dadurch automatisch als Production Deployment gebaut werden.
+Das technische Repository `HandSte/Orgaplattform` ist mit dem Vercel-Projekt verbunden. Commits auf `main` können dadurch automatisch als Production Deployment gebaut werden.
 
 In Vercel müssen einmalig die beiden `NEXT_PUBLIC_SUPABASE_*` Variablen für die Production-Umgebung hinterlegt werden.
 
 ## Datenbank
 
 Die aktuelle Supabase-Struktur ist unter `supabase/migrations/20260911_initial_orgaplattform_schema.sql` versioniert. Das Produktionsprojekt wurde bereits mit der entsprechenden initialen Struktur eingerichtet.
+
+## Branding
+
+Die Anwendung wird als **Essentia** geführt. Der finale Markenauftritt und das endgültige Logo werden später eingearbeitet; bis dahin verwendet die Anwendung einen neutralen temporären E-Marker.
