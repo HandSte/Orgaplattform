@@ -1,9 +1,10 @@
 import type { Metadata, Viewport } from 'next';
 import './globals.css';
+import './branding.css';
 
 export const metadata: Metadata = {
-  title: 'Orgaplattform',
-  description: 'Professionelle, kollaborative Organisationsplattform',
+  title: 'Essentia',
+  description: 'Alles Wesentliche. Ein Ort.',
   manifest: '/manifest.webmanifest',
   robots: { index: false, follow: false },
   icons: {
@@ -11,16 +12,16 @@ export const metadata: Metadata = {
     apple: '/app-icon.svg',
   },
   openGraph: {
-    title: 'Orgaplattform',
-    description: 'Professionelle, kollaborative Organisationsplattform',
+    title: 'Essentia',
+    description: 'Alles Wesentliche. Ein Ort.',
     type: 'website',
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'Orgaplattform',
-    description: 'Professionelle, kollaborative Organisationsplattform',
+    title: 'Essentia',
+    description: 'Alles Wesentliche. Ein Ort.',
   },
-  appleWebApp: { capable: true, title: 'Orgaplattform', statusBarStyle: 'default' },
+  appleWebApp: { capable: true, title: 'Essentia', statusBarStyle: 'default' },
 };
 
 export const viewport: Viewport = {
