@@ -1,1 +1,1 @@
-.brand > span:last-child{font-size:0}.brand > span:last-child::after{content:'Essentia';font-size:inherit}.brand-mark{font-size:0}.brand-mark::after{content:'E';font-size:inherit}
+.brand{display:flex;align-items:center;gap:0;min-height:82px}.brand > span{display:none!important}.brand::before{content:"";display:block;width:230px;height:78px;background:url('/essentia-logo.png') left center / contain no-repeat}.auth-brand{justify-content:center;min-height:92px}.auth-brand::before{width:260px;height:90px;background-position:center}
