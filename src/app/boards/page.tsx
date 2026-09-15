@@ -8,93 +8,18 @@ import type { Board, List } from '@/lib/types';
 type Member = { user_id: string; role: 'owner' | 'admin' | 'member' | 'viewer'; profile?: { full_name: string | null; avatar_url: string | null } | null };
 
 export default function BoardsPage() {
-  const [boards, setBoards] = useState<Board[]>([]);
-  const [lists, setLists] = useState<List[]>([]);
-  const [members, setMembers] = useState<Member[]>([]);
-  const [selectedBoardId, setSelectedBoardId] = useState<string | null>(null);
-  const [userId, setUserId] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [notice, setNotice] = useState('');
-  const selectedBoard = boards.find((b) => b.id === selectedBoardId) ?? null;
-  const myRole = members.find((m) => m.user_id === userId)?.role ?? null;
-  const canManage = myRole === 'owner' || myRole === 'admin';
-  const canDeleteBoard = myRole === 'owner';
+  const [boards, setBoards] = useState<Board[]>([]); const [lists, setLists] = useState<List[]>([]); const [members, setMembers] = useState<Member[]>([]); const [selectedBoardId, setSelectedBoardId] = useState<string | null>(null); const [userId, setUserId] = useState<string | null>(null); const [loading, setLoading] = useState(true); const [notice, setNotice] = useState('');
+  const selectedBoard = boards.find((b) => b.id === selectedBoardId) ?? null; const myRole = members.find((m) => m.user_id === userId)?.role ?? null; const canManage = myRole === 'owner' || myRole === 'admin'; const canDeleteBoard = myRole === 'owner';
   const activeLists = useMemo(() => lists.filter((l) => l.board_id === selectedBoardId).sort((a, b) => a.position - b.position), [lists, selectedBoardId]);
-
-  async function loadBoards() {
-    const client = supabase;
-    if (!client) { setLoading(false); return; }
-    setLoading(true);
-    const { data: session } = await client.auth.getSession();
-    const user = session.session?.user;
-    setUserId(user?.id ?? null);
-    if (!user) { setLoading(false); return; }
-    const { data, error } = await client.from('boards').select('*').order('updated_at', { ascending: false });
-    if (error) setNotice(error.message);
-    const nextBoards = (data ?? []) as Board[];
-    setBoards(nextBoards);
-    setSelectedBoardId((current) => current && nextBoards.some((b) => b.id === current) ? current : nextBoards[0]?.id ?? null);
-    setLoading(false);
-  }
-
-  async function loadBoardDetails(boardId: string) {
-    const client = supabase;
-    if (!client) return;
-    const [listResult, memberResult] = await Promise.all([
-      client.from('lists').select('*').eq('board_id', boardId).order('position'),
-      client.from('board_members').select('user_id,role,profiles!board_members_user_id_fkey(full_name,avatar_url)').eq('board_id', boardId),
-    ]);
-    if (listResult.error) setNotice(listResult.error.message); else setLists((listResult.data ?? []) as List[]);
-    if (memberResult.error) setNotice(memberResult.error.message);
-    else setMembers((memberResult.data ?? []).map((row: any) => ({ user_id: row.user_id, role: row.role, profile: row.profiles ?? null })) as Member[]);
-  }
-
-  useEffect(() => { loadBoards(); }, []);
-  useEffect(() => { if (selectedBoardId) loadBoardDetails(selectedBoardId); }, [selectedBoardId]);
-
-  async function renameBoard() {
-    const client = supabase;
-    if (!client || !selectedBoard || !canManage) return;
-    const name = window.prompt('Neuer Boardname', selectedBoard.name);
-    if (!name?.trim() || name.trim() === selectedBoard.name) return;
-    const { error } = await client.from('boards').update({ name: name.trim() }).eq('id', selectedBoard.id);
-    if (error) return setNotice(error.message);
-    setBoards((current) => current.map((b) => b.id === selectedBoard.id ? { ...b, name: name.trim() } : b));
-  }
-
-  async function deleteBoard() {
-    const client = supabase;
-    if (!client || !selectedBoard || !canDeleteBoard) return;
-    if (!window.confirm(`Board „${selectedBoard.name}“ wirklich löschen? Alle darin enthaltenen Listen und Aufgaben werden ebenfalls gelöscht.`)) return;
-    const { error } = await client.from('boards').delete().eq('id', selectedBoard.id);
-    if (error) return setNotice(error.message);
-    setBoards((current) => current.filter((b) => b.id !== selectedBoard.id));
-    setSelectedBoardId(null);
-    setLists([]);
-    setMembers([]);
-  }
-
-  async function renameList(list: List) {
-    const client = supabase;
-    if (!client || !canManage) return;
-    const name = window.prompt('Neuer Listenname', list.name);
-    if (!name?.trim() || name.trim() === list.name) return;
-    const { error } = await client.from('lists').update({ name: name.trim() }).eq('id', list.id);
-    if (error) return setNotice(error.message);
-    setLists((current) => current.map((item) => item.id === list.id ? { ...item, name: name.trim() } : item));
-  }
-
-  async function deleteList(list: List) {
-    const client = supabase;
-    if (!client || !canManage) return;
-    if (!window.confirm(`Liste „${list.name}“ wirklich löschen? Die darin enthaltenen Aufgaben werden ebenfalls gelöscht.`)) return;
-    const { error } = await client.from('lists').delete().eq('id', list.id);
-    if (error) return setNotice(error.message);
-    setLists((current) => current.filter((item) => item.id !== list.id));
-  }
-
+  async function loadBoards() { const client = supabase; if (!client) { setLoading(false); return; } setLoading(true); const { data: session } = await client.auth.getSession(); const user = session.session?.user; setUserId(user?.id ?? null); if (!user) { setLoading(false); return; } const { data, error } = await client.from('boards').select('*').order('updated_at', { ascending: false }); if (error) setNotice(error.message); const nextBoards = (data ?? []) as Board[]; setBoards(nextBoards); setSelectedBoardId((current) => current && nextBoards.some((b) => b.id === current) ? current : nextBoards[0]?.id ?? null); setLoading(false); }
+  async function loadBoardDetails(boardId: string) { const client = supabase; if (!client) return; const [listResult, memberResult] = await Promise.all([client.from('lists').select('*').eq('board_id', boardId).order('position'), client.from('board_members').select('user_id,role,profiles!board_members_user_id_profiles_fkey(full_name,avatar_url)').eq('board_id', boardId)]); if (listResult.error) setNotice(listResult.error.message); else setLists((listResult.data ?? []) as List[]); if (memberResult.error) setNotice(memberResult.error.message); else setMembers((memberResult.data ?? []).map((row: any) => ({ user_id: row.user_id, role: row.role, profile: row.profiles ?? null })) as Member[]); }
+  useEffect(() => { void loadBoards(); if (!supabase) return; const { data } = supabase.auth.onAuthStateChange((_event, session) => { setUserId(session?.user?.id ?? null); if (!session) { setBoards([]); setLists([]); setMembers([]); setSelectedBoardId(null); } }); return () => data.subscription.unsubscribe(); }, []);
+  useEffect(() => { if (selectedBoardId) void loadBoardDetails(selectedBoardId); else { setLists([]); setMembers([]); } }, [selectedBoardId]);
+  async function renameBoard() { const client = supabase; if (!client || !selectedBoard || !canManage) return; const name = window.prompt('Neuer Boardname', selectedBoard.name); if (!name?.trim() || name.trim() === selectedBoard.name) return; const { error } = await client.from('boards').update({ name: name.trim() }).eq('id', selectedBoard.id); if (error) return setNotice(error.message); setBoards((current) => current.map((b) => b.id === selectedBoard.id ? { ...b, name: name.trim() } : b)); }
+  async function deleteBoard() { const client = supabase; if (!client || !selectedBoard || !canDeleteBoard) return; if (!window.confirm(`Board „${selectedBoard.name}“ wirklich löschen? Alle darin enthaltenen Listen und Aufgaben werden ebenfalls gelöscht.`)) return; const { error } = await client.from('boards').delete().eq('id', selectedBoard.id); if (error) return setNotice(error.message); setBoards((current) => current.filter((b) => b.id !== selectedBoard.id)); setSelectedBoardId(null); setLists([]); setMembers([]); }
+  async function renameList(list: List) { const client = supabase; if (!client || !canManage) return; const name = window.prompt('Neuer Listenname', list.name); if (!name?.trim() || name.trim() === list.name) return; const { error } = await client.from('lists').update({ name: name.trim() }).eq('id', list.id); if (error) return setNotice(error.message); setLists((current) => current.map((item) => item.id === list.id ? { ...item, name: name.trim() } : item)); }
+  async function deleteList(list: List) { const client = supabase; if (!client || !canManage) return; if (!window.confirm(`Liste „${list.name}“ wirklich löschen? Die darin enthaltenen Aufgaben werden ebenfalls gelöscht.`)) return; const { error } = await client.from('lists').delete().eq('id', list.id); if (error) return setNotice(error.message); setLists((current) => current.filter((item) => item.id !== list.id)); }
   if (!supabaseConfigured) return <main className="shell"><section className="content"><div className="empty-state"><h2>Supabase-Verbindung fehlt</h2><p>Die Boardverwaltung benötigt die konfigurierte Supabase-Verbindung.</p><a className="primary button-link" href="/">Zur Übersicht</a></div></section></main>;
   if (!userId && !loading) return <main className="shell"><section className="content"><div className="empty-state"><h2>Boardverwaltung</h2><p>Bitte melde dich an, um Boards zu verwalten.</p><a className="primary button-link" href="/auth">Anmelden</a></div></section></main>;
-
-  return <main className="shell"><aside className="sidebar"><div className="brand"><span className="brand-mark">O</span><span>Orgaplattform</span></div><nav><a href="/">Übersicht</a><a className="active" href="/boards">Meine Boards</a><a href="/team">Team</a><a href="/settings">Einstellungen</a></nav><div className="sidebar-footer">Professionelle Zusammenarbeit</div></aside><section className="content"><header className="topbar"><div><div className="eyebrow">Verwaltung</div><h1>Meine Boards</h1></div><a className="ghost button-link" href="/">← Zur Übersicht</a></header>{notice && <div className="notice">{notice}<button onClick={() => setNotice('')}>×</button></div>}{loading ? <div className="empty-state"><h3>Boards werden geladen …</h3></div> : <section className="management-grid"><div className="management-card"><div className="section-heading"><div><p className="eyebrow">Boards</p><h2>Projekte</h2></div><span className="count">{boards.length}</span></div>{boards.length === 0 ? <p className="muted">Noch keine Boards vorhanden.</p> : <div className="management-list">{boards.map((board) => <button key={board.id} className={`management-row ${selectedBoardId === board.id ? 'selected' : ''}`} onClick={() => setSelectedBoardId(board.id)}><span>{board.name}</span><small>{board.id === selectedBoardId ? 'Ausgewählt' : 'Öffnen'}</small></button>)}</div>}</div>{selectedBoard && <div className="management-card"><div className="section-heading"><div><p className="eyebrow">Board</p><h2>{selectedBoard.name}</h2><p className="muted">Deine Rolle: <strong>{myRole ?? 'unbekannt'}</strong></p></div><div className="top-actions">{canManage && <button className="ghost" onClick={renameBoard}>Umbenennen</button>}{canDeleteBoard && <button className="danger" onClick={deleteBoard}>Löschen</button>}</div></div><div className="management-subsection"><h3>Listen</h3>{activeLists.length === 0 ? <p className="muted">Keine Listen vorhanden.</p> : <div className="management-list">{activeLists.map((list) => <div className="management-row" key={list.id}><span>{list.name}</span>{canManage && <span className="row-actions"><button className="ghost small" onClick={() => renameList(list)}>Umbenennen</button><button className="danger small" onClick={() => deleteList(list)}>Löschen</button></span>}</div>)}</div>}</div><div className="management-subsection"><h3>Mitglieder & Berechtigungen</h3><div className="management-list">{members.map((member) => <div className="management-row" key={member.user_id}><span>{member.profile?.full_name || member.user_id.slice(0, 8)}</span><strong>{member.role}</strong></div>)}</div><p className="muted">Serverseitige Berechtigungen bleiben aktiv: Betrachter können Inhalte lesen, Besitzer und Administratoren verwalten das Board.</p></div></div>}</section>}</section></main>;
+  return <main className="shell"><aside className="sidebar"><div className="brand"><span className="brand-mark">O</span><span>Orgaplattform</span></div><nav><a href="/">Übersicht</a><a className="active" href="/boards">Meine Boards</a><a href="/team">Team</a><a href="/settings">Einstellungen</a></nav><div className="sidebar-footer">Professionelle Zusammenarbeit</div></aside><section className="content"><header className="topbar"><div><div className="eyebrow">Verwaltung</div><h1>Meine Boards</h1></div><a className="ghost button-link" href="/">← Zur Übersicht</a></header>{notice && <div className="notice">{notice}<button onClick={() => setNotice('')}>×</button></div>}{loading ? <div className="empty-state"><h3>Boards werden geladen …</h3></div> : <section className="management-grid"><div className="management-card"><div className="section-heading"><div><p className="eyebrow">Boards</p><h2>Projekte</h2></div><span className="count">{boards.length}</span></div>{boards.length === 0 ? <p className="muted">Noch keine Boards vorhanden.</p> : <div className="management-list">{boards.map((board) => <button key={board.id} className={`management-row ${selectedBoardId === board.id ? 'selected' : ''}`} onClick={() => setSelectedBoardId(board.id)}><span>{board.name}</span><small>{board.id === selectedBoardId ? 'Ausgewählt' : 'Öffnen'}</small></button>)}</div>}</div>{selectedBoard && <div className="management-card"><div className="section-heading"><div><p className="eyebrow">Board</p><h2>{selectedBoard.name}</h2><p className="muted">Deine Rolle: <strong>{myRole ?? 'unbekannt'}</strong></p></div><div className="top-actions">{canManage && <button className="ghost" onClick={renameBoard}>Umbenennen</button>}{canDeleteBoard && <button className="danger" onClick={deleteBoard}>Löschen</button>}</div></div><div className="management-subsection"><h3>Listen</h3>{activeLists.length === 0 ? <p className="muted">Keine Listen vorhanden.</p> : <div className="management-list">{activeLists.map((list) => <div className="management-row" key={list.id}><span>{list.name}</span>{canManage && <span className="row-actions"><button className="ghost small" onClick={() => void renameList(list)}>Umbenennen</button><button className="danger small" onClick={() => void deleteList(list)}>Löschen</button></span>}</div>)}</div>}</div><div className="management-subsection"><h3>Mitglieder & Berechtigungen</h3><div className="management-list">{members.map((member) => <div className="management-row" key={member.user_id}><span>{member.profile?.full_name || member.user_id.slice(0, 8)}</span><strong>{member.role}</strong></div>)}</div><p className="muted">Serverseitige Berechtigungen bleiben aktiv: Betrachter können Inhalte lesen, Besitzer und Administratoren verwalten das Board.</p></div></div>}</section>}</section></main>;
 }
