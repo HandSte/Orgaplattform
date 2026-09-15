@@ -1,7 +1,7 @@
 {
-  "name": "Orgaplattform",
-  "short_name": "Orgaplattform",
-  "description": "Professionelle, kollaborative Organisationsplattform",
+  "name": "Essentia",
+  "short_name": "Essentia",
+  "description": "Alles Wesentliche. Ein Ort.",
   "lang": "de-DE",
   "start_url": "/",
   "scope": "/",
