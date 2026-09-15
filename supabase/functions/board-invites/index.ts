@@ -1,9 +1,96 @@
-import "jsr:@supabase/functions-js/edge-runtime.d.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-const cors={"Access-Control-Allow-Origin":"*","Access-Control-Allow-Headers":"authorization, x-client-info, apikey, content-type"};
-const json=(body:unknown,status=200)=>new Response(JSON.stringify(body),{status,headers:{...cors,"Content-Type":"application/json"}});
-async function sha256(value:string){const hash=await crypto.subtle.digest("SHA-256",new TextEncoder().encode(value));return Array.from(new Uint8Array(hash)).map(b=>b.toString(16).padStart(2,"0")).join("")}
-function randomToken(){const bytes=new Uint8Array(32);crypto.getRandomValues(bytes);return Array.from(bytes).map(b=>b.toString(16).padStart(2,"0")).join("")}
-Deno.serve(async(req:Request)=>{if(req.method==="OPTIONS")return new Response("ok",{headers:cors});try{const authHeader=req.headers.get("Authorization");if(!authHeader)return json({error:"Nicht angemeldet."},401);const url=Deno.env.get("SUPABASE_URL")!;const serviceKey=Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;const admin=createClient(url,serviceKey);const accessToken=authHeader.replace(/^Bearer\s+/i,"");const {data:authData,error:authError}=await admin.auth.getUser(accessToken);const user=authData.user;if(authError||!user)return json({error:"Ungültige Sitzung."},401);const body=await req.json();
-if(body.action==="create"){const{board_id,email,role="member"}=body;if(!board_id||!email)return json({error:"Board und E-Mail sind erforderlich."},400);const normalizedEmail=String(email).trim().toLowerCase();if(!/^\S+@\S+\.\S+$/.test(normalizedEmail))return json({error:"Ungültige E-Mail-Adresse."},400);if(!["admin","member","viewer"].includes(role))return json({error:"Ungültige Rolle."},400);const{data:board}=await admin.from("boards").select("id,owner_id").eq("id",board_id).maybeSingle();if(!board)return json({error:"Board nicht gefunden."},404);if(board.owner_id!==user.id){const{data:membership}=await admin.from("board_members").select("role").eq("board_id",board_id).eq("user_id",user.id).maybeSingle();if(!membership||!["owner","admin"].includes(membership.role))return json({error:"Keine Berechtigung."},403)}const{data:existingUser}=await admin.auth.admin.listUsers({page:1,perPage:1000});const match=existingUser.users.find(candidate=>candidate.email?.toLowerCase()===normalizedEmail);if(match){const{data:existingMember}=await admin.from("board_members").select("user_id").eq("board_id",board_id).eq("user_id",match.id).maybeSingle();if(existingMember)return json({error:"Diese Person ist bereits Mitglied des Boards."},409)}const rawToken=randomToken();const tokenHash=await sha256(rawToken);await admin.from("board_invitations").delete().eq("board_id",board_id).eq("email",normalizedEmail).is("accepted_at",null);const{data:invitation,error}=await admin.from("board_invitations").insert({board_id,email:normalizedEmail,role,created_by:user.id,token_hash:tokenHash}).select("expires_at").single();if(error)return json({error:error.message},500);return json({token:rawToken,expires_at:invitation.expires_at})}
-if(body.action==="accept"){const rawToken=String(body.token??"").trim();if(!rawToken)return json({error:"Einladungslink fehlt."},400);const tokenHash=await sha256(rawToken);const{data:invitation}=await admin.from("board_invitations").select("id,board_id,email,role,expires_at,accepted_at").eq("token_hash",tokenHash).maybeSingle();if(!invitation)return json({error:"Einladung nicht gefunden."},404);if(invitation.accepted_at)return json({error:"Diese Einladung wurde bereits verwendet."},409);if(new Date(invitation.expires_at).getTime()<Date.now())return json({error:"Diese Einladung ist abgelaufen."},410);if(user.email?.toLowerCase()!==invitation.email.toLowerCase())return json({error:`Die Einladung ist für ${invitation.email} bestimmt. Bitte mit dieser E-Mail-Adresse anmelden.`},403);const{error:memberError}=await admin.from("board_members").upsert({board_id:invitation.board_id,user_id:user.id,role:invitation.role},{onConflict:"board_id,user_id"});if(memberError)return json({error:memberError.message},500);const{error:acceptError}=await admin.from("board_invitations").update({accepted_at:new Date().toISOString()}).eq("id",invitation.id).is("accepted_at",null);if(acceptError)return json({error:acceptError.message},500);return json({board_id:invitation.board_id})}return json({error:"Unbekannte Aktion."},400)}catch(error){return json({error:error instanceof Error?error.message:"Unbekannter Fehler."},500)}});
+import { withSupabase } from 'npm:@supabase/server';
+import { createClient } from 'npm:@supabase/supabase-js@2';
+
+async function sha256(value: string) {
+  const hash = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(value));
+  return Array.from(new Uint8Array(hash)).map((b) => b.toString(16).padStart(2, '0')).join('');
+}
+
+function randomToken() {
+  const bytes = new Uint8Array(32);
+  crypto.getRandomValues(bytes);
+  return Array.from(bytes).map((b) => b.toString(16).padStart(2, '0')).join('');
+}
+
+function safeNextOrigin(req: Request) {
+  return (req.headers.get('Origin') || 'https://orgaplattform.vercel.app').replace(/\/$/, '');
+}
+
+export default {
+  fetch: withSupabase({ auth: 'user' }, async (req, ctx) => {
+    try {
+      const body = await req.json();
+      const userId = ctx.userClaims?.id;
+      const userEmail = ctx.userClaims?.email;
+      if (!userId || !userEmail) return Response.json({ error: 'Ungültige Sitzung.' }, { status: 401 });
+
+      if (body.action === 'create') {
+        const { board_id, email, role = 'member' } = body;
+        if (!board_id || !email) return Response.json({ error: 'Board und E-Mail sind erforderlich.' }, { status: 400 });
+        const normalizedEmail = String(email).trim().toLowerCase();
+        if (!/^\S+@\S+\.\S+$/.test(normalizedEmail)) return Response.json({ error: 'Ungültige E-Mail-Adresse.' }, { status: 400 });
+        if (!['admin', 'member', 'viewer'].includes(role)) return Response.json({ error: 'Ungültige Rolle.' }, { status: 400 });
+
+        const { data: board } = await ctx.supabaseAdmin.from('boards').select('id,owner_id').eq('id', board_id).maybeSingle();
+        if (!board) return Response.json({ error: 'Board nicht gefunden.' }, { status: 404 });
+        if (board.owner_id !== userId) {
+          const { data: membership } = await ctx.supabaseAdmin.from('board_members').select('role').eq('board_id', board_id).eq('user_id', userId).maybeSingle();
+          if (!membership || !['owner', 'admin'].includes(membership.role)) return Response.json({ error: 'Keine Berechtigung.' }, { status: 403 });
+        }
+
+        const { data: existingUsers } = await ctx.supabaseAdmin.auth.admin.listUsers({ page: 1, perPage: 1000 });
+        const existingUser = existingUsers?.users.find((candidate) => candidate.email?.toLowerCase() === normalizedEmail);
+        if (existingUser) {
+          const { data: existingMember } = await ctx.supabaseAdmin.from('board_members').select('user_id').eq('board_id', board_id).eq('user_id', existingUser.id).maybeSingle();
+          if (existingMember) return Response.json({ error: 'Diese Person ist bereits Mitglied des Boards.' }, { status: 409 });
+        }
+
+        const rawToken = randomToken();
+        const tokenHash = await sha256(rawToken);
+        await ctx.supabaseAdmin.from('board_invitations').delete().eq('board_id', board_id).eq('email', normalizedEmail).is('accepted_at', null);
+        const { data: invitation, error: invitationError } = await ctx.supabaseAdmin.from('board_invitations').insert({ board_id, email: normalizedEmail, role, created_by: userId, token_hash: tokenHash }).select('id,expires_at').single();
+        if (invitationError) return Response.json({ error: invitationError.message }, { status: 500 });
+
+        const inviteUrl = `${safeNextOrigin(req)}/invite/${rawToken}`;
+        let mailError: { message?: string } | null = null;
+        if (!existingUser) {
+          const result = await ctx.supabaseAdmin.auth.admin.inviteUserByEmail(normalizedEmail, { redirectTo: inviteUrl, data: { board_id, board_role: role } });
+          mailError = result.error;
+        } else {
+          const publishableKeys = JSON.parse(Deno.env.get('SUPABASE_PUBLISHABLE_KEYS') || '{}');
+          const publishableKey = publishableKeys.default;
+          if (!publishableKey) throw new Error('Publishable Supabase-Schlüssel fehlt.');
+          const publicClient = createClient(Deno.env.get('SUPABASE_URL')!, publishableKey, { auth: { autoRefreshToken: false, persistSession: false } });
+          const result = await publicClient.auth.signInWithOtp({ email: normalizedEmail, options: { shouldCreateUser: false, emailRedirectTo: inviteUrl } });
+          mailError = result.error;
+        }
+
+        if (mailError) {
+          await ctx.supabaseAdmin.from('board_invitations').delete().eq('id', invitation.id);
+          return Response.json({ error: `Einladungs-E-Mail konnte nicht versendet werden: ${mailError.message ?? 'Unbekannter Fehler'}` }, { status: 500 });
+        }
+        return Response.json({ sent: true, expires_at: invitation.expires_at });
+      }
+
+      if (body.action === 'accept') {
+        const rawToken = String(body.token ?? '').trim();
+        if (!rawToken) return Response.json({ error: 'Einladungslink fehlt.' }, { status: 400 });
+        const tokenHash = await sha256(rawToken);
+        const { data: invitation } = await ctx.supabaseAdmin.from('board_invitations').select('id,board_id,email,role,expires_at,accepted_at').eq('token_hash', tokenHash).maybeSingle();
+        if (!invitation) return Response.json({ error: 'Einladung nicht gefunden.' }, { status: 404 });
+        if (invitation.accepted_at) return Response.json({ error: 'Diese Einladung wurde bereits verwendet.' }, { status: 409 });
+        if (new Date(invitation.expires_at).getTime() < Date.now()) return Response.json({ error: 'Diese Einladung ist abgelaufen.' }, { status: 410 });
+        if (userEmail.toLowerCase() !== invitation.email.toLowerCase()) return Response.json({ error: `Die Einladung ist für ${invitation.email} bestimmt. Bitte mit dieser E-Mail-Adresse anmelden.` }, { status: 403 });
+        const { error: memberError } = await ctx.supabaseAdmin.from('board_members').upsert({ board_id: invitation.board_id, user_id: userId, role: invitation.role }, { onConflict: 'board_id,user_id' });
+        if (memberError) return Response.json({ error: memberError.message }, { status: 500 });
+        const { error: acceptError } = await ctx.supabaseAdmin.from('board_invitations').update({ accepted_at: new Date().toISOString() }).eq('id', invitation.id).is('accepted_at', null);
+        if (acceptError) return Response.json({ error: acceptError.message }, { status: 500 });
+        return Response.json({ board_id: invitation.board_id });
+      }
+
+      return Response.json({ error: 'Unbekannte Aktion.' }, { status: 400 });
+    } catch (error) {
+      return Response.json({ error: error instanceof Error ? error.message : 'Unbekannter Fehler.' }, { status: 500 });
+    }
+  }),
+};
