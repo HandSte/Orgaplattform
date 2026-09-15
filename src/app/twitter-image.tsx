@@ -19,8 +19,8 @@ export default function Image() {
           fontFamily: 'sans-serif',
         }}
       >
-        <div style={{ fontSize: 28, opacity: 0.75 }}>Professionelle Zusammenarbeit</div>
-        <div style={{ fontSize: 76, fontWeight: 700, marginTop: 18 }}>Orgaplattform</div>
+        <div style={{ fontSize: 28, opacity: 0.75 }}>Alles Wesentliche. Ein Ort.</div>
+        <div style={{ fontSize: 76, fontWeight: 700, marginTop: 18 }}>Essentia</div>
         <div style={{ fontSize: 34, marginTop: 22, opacity: 0.9 }}>Boards · Aufgaben · Team</div>
       </div>
     ),
