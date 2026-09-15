@@ -1,6 +1,6 @@
-# Orgaplattform Mobile
+# Essentia Mobile
 
-Private mobile client for the Orgaplattform. Android and iOS use the same Supabase backend as the web application.
+Private mobile client for **Essentia**. Android and iOS use the same Supabase backend as the web application.
 
 ## Current functionality
 
@@ -34,3 +34,7 @@ The repository contains `app.config.ts` and `eas.json` for internal packaging. A
 An Expo/EAS account and the platform signing credentials are required when actually creating a build. Apple provisioning is handled by the normal iOS internal-distribution process. Do not commit `.env`, signing credentials, provisioning profiles or any private service-role credentials.
 
 The web PWA remains available as a store-free fallback.
+
+## Branding
+
+Essentia uses a temporary E app mark until the final logo is supplied and integrated.
