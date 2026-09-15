@@ -48,6 +48,7 @@ export default function Home() {
   const [workspaceMembers, setWorkspaceMembers] = useState<WorkspaceMember[]>([]);
   const [selectedMembers, setSelectedMembers] = useState<SelectedMember[]>([]);
   const [createBusy, setCreateBusy] = useState(false);
+  const [boardMenuOpen, setBoardMenuOpen] = useState(false);
   const listsRef = useRef<List[]>([]);
   const activeBoard = boards.find((board) => board.id === selectedBoard) ?? boards[0] ?? null;
   const activeLists = useMemo(() => lists.filter((list) => list.board_id === activeBoard?.id).sort((a, b) => a.position - b.position), [lists, activeBoard]);
@@ -128,6 +129,65 @@ export default function Home() {
     setCreateOpen(false); setCreateBusy(false); await loadBoards(); setSelectedBoard(board.id);
   }
 
+  async function renameBoard() {
+    const client = supabase; if (!client || !activeBoard || !canManage) return;
+    const name = window.prompt('Board umbenennen', activeBoard.name);
+    if (!name?.trim() || name.trim() === activeBoard.name) return;
+    const { error } = await client.from('boards').update({ name: name.trim() }).eq('id', activeBoard.id);
+    if (error) setNotice(error.message); else setBoards(current => current.map(board => board.id === activeBoard.id ? { ...board, name: name.trim() } : board));
+    setBoardMenuOpen(false);
+  }
+
+  async function renameBoardDescription() {
+    const client = supabase; if (!client || !activeBoard || !canManage) return;
+    const description = window.prompt('Boardbeschreibung bearbeiten', activeBoard.description ?? '');
+    if (description === null) return;
+    const value = description.trim() || null;
+    const { error } = await client.from('boards').update({ description: value }).eq('id', activeBoard.id);
+    if (error) setNotice(error.message); else setBoards(current => current.map(board => board.id === activeBoard.id ? { ...board, description: value } : board));
+    setBoardMenuOpen(false);
+  }
+
+  async function deleteBoard() {
+    const client = supabase; if (!client || !activeBoard || myRole !== 'owner') return;
+    if (!window.confirm(`Board „${activeBoard.name}“ wirklich löschen? Listen, Aufgaben und zugehörige Daten werden dabei entfernt.`)) return;
+    const { error } = await client.from('boards').delete().eq('id', activeBoard.id);
+    if (error) { setNotice(error.message); return; }
+    setBoardMenuOpen(false);
+    const remaining = boards.filter(board => board.id !== activeBoard.id);
+    setBoards(remaining);
+    setSelectedBoard(remaining[0]?.id ?? null);
+  }
+
+  async function duplicateBoard() {
+    const client = supabase; if (!client || !activeBoard || myRole !== 'owner') return;
+    setNotice('');
+    const { data: newBoard, error: boardError } = await client.from('boards').insert({ name: `${activeBoard.name} – Kopie`, description: activeBoard.description, owner_id: userId }).select().single();
+    if (boardError || !newBoard) { setNotice(boardError?.message ?? 'Board konnte nicht dupliziert werden.'); return; }
+    const { data: members, error: membersError } = await client.from('board_members').select('user_id,role').eq('board_id', activeBoard.id);
+    if (membersError) { setNotice(membersError.message); return; }
+    const memberRows = (members ?? []).map((member: { user_id: string; role: BoardRole }) => ({ board_id: newBoard.id, user_id: member.user_id, role: member.user_id === userId ? 'owner' : member.role }));
+    const { error: memberInsertError } = await client.from('board_members').insert(memberRows);
+    if (memberInsertError) { setNotice(memberInsertError.message); return; }
+    const { data: sourceLists, error: listError } = await client.from('lists').select('*').eq('board_id', activeBoard.id).order('position');
+    if (listError) { setNotice(listError.message); return; }
+    const listMap = new Map<string, string>();
+    for (const sourceList of sourceLists ?? []) {
+      const { data: newList, error: newListError } = await client.from('lists').insert({ board_id: newBoard.id, name: sourceList.name, position: sourceList.position }).select().single();
+      if (newListError || !newList) { setNotice(newListError?.message ?? 'Liste konnte nicht kopiert werden.'); return; }
+      listMap.set(sourceList.id, newList.id);
+    }
+    const sourceCards = cards.filter(card => listMap.has(card.list_id));
+    if (sourceCards.length) {
+      const { error: cardsError } = await client.from('cards').insert(sourceCards.map(card => ({ list_id: listMap.get(card.list_id)!, title: card.title, description: card.description, position: card.position, priority: card.priority, assignee_id: card.assignee_id, due_at: card.due_at, created_by: userId })));
+      if (cardsError) { setNotice(cardsError.message); return; }
+    }
+    setBoardMenuOpen(false);
+    await loadBoards();
+    setSelectedBoard(newBoard.id);
+    setNotice(`Board „${newBoard.name}“ wurde dupliziert.`);
+  }
+
   async function addList() { const client = supabase; if (!client || !activeBoard || !canManage) return; const name = window.prompt('Name der neuen Liste', 'Neue Liste'); if (!name?.trim()) return; const { data, error } = await client.from('lists').insert({ board_id: activeBoard.id, name: name.trim(), position: activeLists.length }).select().single(); if (error) setNotice(error.message); else if (data) setLists(current => [...current, data as List]); }
   async function renameList(list: List) { const client = supabase; if (!client || !canManage) return; const name = window.prompt('Liste umbenennen', list.name); if (!name?.trim() || name.trim() === list.name) return; const { error } = await client.from('lists').update({ name: name.trim() }).eq('id', list.id); if (error) setNotice(error.message); else setLists(current => current.map(item => item.id === list.id ? { ...item, name: name.trim() } : item)); }
   async function deleteList(list: List) { const client = supabase; if (!client || !canManage) return; if (!window.confirm(`Liste „${list.name}“ wirklich löschen? Die enthaltenen Aufgaben werden ebenfalls gelöscht.`)) return; const { error } = await client.from('lists').delete().eq('id', list.id); if (error) setNotice(error.message); else setLists(current => current.filter(item => item.id !== list.id)); }
@@ -151,11 +211,11 @@ export default function Home() {
       <header className="topbar"><div><div className="eyebrow">Arbeitsbereich</div><h1>Übersicht</h1></div><div className="top-actions">{userEmail && <NotificationCenter onOpenCard={openNotificationCard} />}{userEmail ? <button className="ghost" onClick={signOut}>Abmelden</button> : <a className="ghost button-link" href="/auth">Anmelden</a>}<button className="primary" onClick={() => void openCreateBoard()}>+ Neues Board</button></div></header>
       {!supabaseConfigured && <div className="setup-banner"><strong>Supabase-Verbindung fehlt.</strong><span>Für echte Benutzer, Boards und Echtzeit-Daten müssen die NEXT_PUBLIC_SUPABASE_* Variablen gesetzt werden.</span></div>}
       {notice && <div className="notice">{notice}<button onClick={() => setNotice('')}>×</button></div>}
-      <section className="board-strip-section"><div className="board-strip-head"><div><p className="eyebrow">Meine Arbeitsflächen</p><span>Alle aktiven Boards, an denen du beteiligt bist</span></div><strong>{boards.length}</strong></div><div className="board-strip">{boards.map(board => <button key={board.id} className={`board-tab ${activeBoard?.id === board.id ? 'active' : ''}`} onClick={() => setSelectedBoard(board.id)}><span className="board-tab-mark">{board.name.slice(0, 1).toUpperCase()}</span><span className="board-tab-copy"><strong>{board.name}</strong><small>{board.description || 'Kanban-Arbeitsfläche'}</small></span></button>)}{userEmail && <button className="board-tab board-tab-add" onClick={() => void openCreateBoard()}>＋ Neues Board</button>}</div></section>
+      <section className="board-strip-section"><div className="board-strip-head"><div><p className="eyebrow">Meine Arbeitsflächen</p><span>Alle aktiven Boards, an denen du beteiligt bist</span></div><strong>{boards.length}</strong></div><div className="board-strip">{boards.map(board => <button key={board.id} className={`board-tab ${activeBoard?.id === board.id ? 'active' : ''}`} onClick={() => { setSelectedBoard(board.id); setBoardMenuOpen(false); }}><span className="board-tab-mark">{board.name.slice(0, 1).toUpperCase()}</span><span className="board-tab-copy"><strong>{board.name}</strong><small>{board.description || 'Kanban-Arbeitsfläche'}</small></span></button>)}{userEmail && <button className="board-tab board-tab-add" onClick={() => void openCreateBoard()}>＋ Neues Board</button>}</div></section>
       {loading ? <div className="empty-state"><h3>Boards werden geladen …</h3></div> : !activeBoard ? <div className="empty-state"><h3>Noch kein Board vorhanden</h3><p>Erstelle dein erstes Board oder lass dich zu einem bestehenden Board hinzufügen.</p><button className="primary" onClick={() => void openCreateBoard()}>+ Erstes Board erstellen</button></div> : <>
-        <section className="workspace-header"><div><p className="eyebrow">Board</p><h2>{activeBoard.name}</h2><p className="muted">{activeBoard.description || 'Gemeinsame Kanban-Arbeitsfläche'} · {myRole ? roleLabels[myRole] : 'Berechtigungen werden geladen'}</p></div><div className="top-actions"><input className="search-input" value={search} onChange={e => setSearch(e.target.value)} placeholder="Aufgaben durchsuchen …" aria-label="Aufgaben durchsuchen"/><select className="filter-select" value={filter} onChange={e => setFilter(e.target.value as Filter)} aria-label="Aufgaben filtern"><option value="all">Alle Aufgaben</option><option value="overdue">Überfällig</option><option value="today">Heute fällig</option><option value="high">Hohe Priorität</option></select>{canManage && <button className="ghost" onClick={() => void addList()}>＋ Liste</button>}</div></section>
+        <section className="workspace-header"><div><p className="eyebrow">Board</p><h2>{activeBoard.name}</h2><p className="muted">{activeBoard.description || 'Gemeinsame Kanban-Arbeitsfläche'} · {myRole ? roleLabels[myRole] : 'Berechtigungen werden geladen'}</p></div><div className="top-actions"><input className="search-input" value={search} onChange={e => setSearch(e.target.value)} placeholder="Aufgaben durchsuchen …" aria-label="Aufgaben durchsuchen"/><select className="filter-select" value={filter} onChange={e => setFilter(e.target.value as Filter)} aria-label="Aufgaben filtern"><option value="all">Alle Aufgaben</option><option value="overdue">Überfällig</option><option value="today">Heute fällig</option><option value="high">Hohe Priorität</option></select>{canManage && <button className="ghost" onClick={() => void addList()}>＋ Liste</button>}<div className="board-actions"><button className="ghost board-actions-trigger" aria-haspopup="menu" aria-expanded={boardMenuOpen} onClick={() => setBoardMenuOpen(current => !current)}>•••</button>{boardMenuOpen && <div className="board-actions-menu" role="menu"><button onClick={() => void renameBoard()}>Board umbenennen</button><button onClick={() => void renameBoardDescription()}>Beschreibung bearbeiten</button>{myRole === 'owner' && <button onClick={() => void duplicateBoard()}>Board duplizieren</button>}<a href="/team">Team verwalten</a>{myRole === 'owner' && <button className="danger-menu" onClick={() => void deleteBoard()}>Board löschen</button>}</div>}</div></div></section>
         <section className="kanban-board" aria-label={`Board ${activeBoard.name}`}>
-          {activeLists.map(list => { const listCards = visibleCards.filter(card => card.list_id === list.id); return <div className={`kanban-column ${draggedCardId ? 'drag-active' : ''}`} key={list.id} onDragOver={e => e.preventDefault()} onDrop={e => onColumnDrop(e, list.id)}><header><div><h3>{list.name}</h3><span>{listCards.length} Aufgaben</span></div>{canManage && <div className="top-actions"><button className="column-menu" title="Liste umbenennen" onClick={() => void renameList(list)}>•••</button><button className="column-menu" title="Liste löschen" onClick={() => void deleteList(list)}>×</button></div>}</header><div className="kanban-cards">{listCards.map(card => <button key={card.id} className={`kanban-card ${dragOverCardId === card.id ? 'drag-over' : ''}`} draggable={canEditCards} onDragStart={e => onCardDragStart(e, card.id)} onDragOver={e => onCardDragOver(e, card.id)} onDragLeave={() => setDragOverCardId(current => current === card.id ? null : current)} onDrop={e => onCardDrop(e, card)} onDragEnd={() => { setDraggedCardId(null); setDragOverCardId(null); }} onClick={() => setSelectedCard(card)}><strong>{card.title}</strong>{card.description && <span>{card.description}</span>}<small>{priorityLabels[card.priority ?? 'normal']}{card.assignee_id ? ` · ${profiles.find(p => p.id === card.assignee_id)?.full_name || 'Teammitglied'}` : ''}{card.due_at ? ` · ${new Date(card.due_at).toLocaleDateString('de-DE')}` : ''}</small><ChecklistProgressBadge progress={checklistProgress[card.id] ?? null} /></button>)}{canEditCards && <button className="add-card-link" onClick={() => void addCard(list.id)}>＋ Aufgabe hinzufügen</button>}</div></div>; })}
+          {activeLists.map(list => { const listCards = visibleCards.filter(card => card.list_id === list.id); return <div className={`kanban-column ${draggedCardId ? 'drag-active' : ''}`} key={list.id} onDragOver={e => e.preventDefault()} onDrop={e => onColumnDrop(e, list.id)}><header><div><h3>{list.name}</h3><span>{listCards.length} Aufgaben</span></div>{canManage && <div className="top-actions"><button className="column-menu" title="Liste umbenennen" onClick={() => void renameList(list)}>•••</button><button className="column-menu" title="Liste löschen" onClick={() => void deleteList(list)}>×</button></div>}</header><div className="kanban-cards">{listCards.map(card => <div key={card.id} className="kanban-card-wrap"><button className={`kanban-card ${dragOverCardId === card.id ? 'drag-over' : ''}`} draggable={canEditCards} onDragStart={e => onCardDragStart(e, card.id)} onDragOver={e => onCardDragOver(e, card.id)} onDragLeave={() => setDragOverCardId(current => current === card.id ? null : current)} onDrop={e => onCardDrop(e, card)} onDragEnd={() => { setDraggedCardId(null); setDragOverCardId(null); }} onClick={() => setSelectedCard(card)}><strong>{card.title}</strong>{card.description && <span>{card.description}</span>}<small>{priorityLabels[card.priority ?? 'normal']}{card.assignee_id ? ` · ${profiles.find(p => p.id === card.assignee_id)?.full_name || 'Teammitglied'}` : ''}{card.due_at ? ` · ${new Date(card.due_at).toLocaleDateString('de-DE')}` : ''}</small><ChecklistProgressBadge progress={checklistProgress[card.id] ?? null}/></button>{canEditCards && <select className="card-move-select" defaultValue="" aria-label={`Aufgabe ${card.title} verschieben`} onChange={e => { const target = e.target.value; e.currentTarget.value = ''; if (target) void moveCard(card.id, target, null); }}><option value="">Verschieben …</option>{activeLists.map(targetList => <option key={targetList.id} value={targetList.id} disabled={targetList.id === list.id}>{targetList.id === list.id ? `${targetList.name} (aktuell)` : targetList.name}</option>)}</select>}</div>)}{canEditCards && <button className="add-card-link" onClick={() => void addCard(list.id)}>＋ Aufgabe hinzufügen</button>}</div></div>; })}
           {canManage && <button className="add-column" onClick={() => void addList()}>＋ Weitere Liste</button>}
         </section>
       </>}
