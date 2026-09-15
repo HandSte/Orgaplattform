@@ -11,7 +11,9 @@ Professionelle Kanban-/Projektplattform für Teams. Die Web-App basiert auf Next
 - Boards, Listen und Karten
 - Rollenmodell: owner, admin, member, viewer
 - Row Level Security (RLS)
-- Supabase Realtime für Listen/Karten
+- Supabase Realtime für Listen, Karten, Checklisten, Kommentare, Anhänge und Benachrichtigungen
+- Kollaborative Board-Arbeitsfläche mit Board-Leiste und Detailseitenleiste
+- Direktes Hinzufügen bereits vorhandener Teammitglieder zu Boards
 - GitHub → Vercel Deployment
 - responsive Web-Oberfläche
 
@@ -43,4 +45,4 @@ Die aktuelle Supabase-Struktur ist unter `supabase/migrations/20260911_initial_o
 
 ## Branding
 
-Die Anwendung wird als **Essentia** geführt. Der finale Markenauftritt und das endgültige Logo werden später eingearbeitet; bis dahin verwendet die Anwendung einen neutralen temporären E-Marker.
+Die Anwendung wird als **Essentia** geführt. Das bereitgestellte Essentia-Logo ist als `public/essentia-logo.png` Bestandteil der Oberfläche und wird nicht durch ein generiertes Ersatzmotiv ersetzt.
