@@ -10,6 +10,11 @@ function getSafeNextPath() {
   return next;
 }
 
+function getAuthCallbackUrl(next: string) {
+  if (typeof window === 'undefined') return `/auth/callback?next=${encodeURIComponent(next)}`;
+  return `${window.location.origin}/auth/callback?next=${encodeURIComponent(next)}`;
+}
+
 export default function AuthPage() {
   const [mode, setMode] = useState<'login' | 'signup'>('login');
   const [email, setEmail] = useState('');
@@ -26,13 +31,21 @@ export default function AuthPage() {
       return;
     }
     setBusy(true);
+    const next = getSafeNextPath();
     const result = mode === 'login'
       ? await supabase.auth.signInWithPassword({ email, password })
-      : await supabase.auth.signUp({ email, password, options: { data: { full_name: name } } });
+      : await supabase.auth.signUp({
+          email,
+          password,
+          options: {
+            data: { full_name: name },
+            emailRedirectTo: getAuthCallbackUrl(next),
+          },
+        });
     setBusy(false);
     if (result.error) return setMessage(result.error.message);
-    setMessage(mode === 'login' ? 'Anmeldung erfolgreich. Du wirst weitergeleitet.' : 'Konto angelegt. Bitte bestätige ggf. deine E-Mail-Adresse.');
-    if (mode === 'login') window.location.href = getSafeNextPath();
+    setMessage(mode === 'login' ? 'Anmeldung erfolgreich. Du wirst weitergeleitet.' : 'Konto angelegt. Bitte bestätige deine E-Mail-Adresse. Danach wirst du automatisch zurück zur Anwendung geleitet.');
+    if (mode === 'login') window.location.href = next;
   }
 
   return (
