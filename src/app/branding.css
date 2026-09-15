@@ -1,1 +1,1 @@
-.brand-name-essentia::after{content:'Essentia'}.brand-name-legacy{font-size:0}.brand-name-legacy::after{content:'Essentia';font-size:inherit}.brand-mark-essentia{font-size:0}.brand-mark-essentia::after{content:'E';font-size:inherit}.app-name-essentia{font-size:0}.app-name-essentia::after{content:'Essentia';font-size:inherit}
+.brand > span:last-child{font-size:0}.brand > span:last-child::after{content:'Essentia';font-size:inherit}.brand-mark{font-size:0}.brand-mark::after{content:'E';font-size:inherit}
