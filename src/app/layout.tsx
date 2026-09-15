@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from 'next';
 import './globals.css';
 import './branding.css';
+import './boards/workspace-enhancements.css';
 
 export const metadata: Metadata = {
   title: 'Essentia',
