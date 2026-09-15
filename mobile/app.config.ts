@@ -2,20 +2,20 @@ import type { ExpoConfig } from 'expo/config';
 
 export default ({ config }: { config: ExpoConfig }): ExpoConfig => ({
   ...config,
-  name: 'Orgaplattform',
-  slug: 'orgaplattform',
+  name: 'Essentia',
+  slug: 'essentia',
   version: '0.1.0',
   orientation: 'default',
   userInterfaceStyle: 'automatic',
-  scheme: 'orgaplattform',
+  scheme: 'essentia',
   ios: {
     ...(config.ios ?? {}),
     supportsTablet: true,
-    bundleIdentifier: 'de.orgaplattform.app',
+    bundleIdentifier: 'de.essentia.app',
   },
   android: {
     ...(config.android ?? {}),
-    package: 'de.orgaplattform.app',
+    package: 'de.essentia.app',
   },
   web: {
     ...(config.web ?? {}),
