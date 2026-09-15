@@ -51,10 +51,10 @@ export default function AuthPage() {
   return (
     <main className="auth-shell">
       <section className="auth-card">
-        <div className="brand auth-brand"><span className="brand-mark">O</span><span>Orgaplattform</span></div>
+        <div className="brand auth-brand"><span className="brand-mark">E</span><span>Essentia</span></div>
         <p className="eyebrow">Sicherer Zugang</p>
         <h1>{mode === 'login' ? 'Willkommen zurück' : 'Konto erstellen'}</h1>
-        <p className="auth-copy">Boards, Aufgaben und Zusammenarbeit an einem Ort.</p>
+        <p className="auth-copy">Alles Wesentliche. Ein Ort.</p>
         <form onSubmit={submit} className="auth-form">
           {mode === 'signup' && <label>Name<input value={name} onChange={(e) => setName(e.target.value)} placeholder="Max Mustermann" required /></label>}
           <label>E-Mail<input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="name@firma.de" required /></label>
