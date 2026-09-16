@@ -9,11 +9,13 @@
     "scheme": "orgaplattform",
     "android": {
       "package": "de.handste.orgaplattform",
-      "permissions": []
+      "permissions": [],
+      "versionCode": 1
     },
     "ios": {
       "bundleIdentifier": "de.handste.orgaplattform",
-      "supportsTablet": true
+      "supportsTablet": true,
+      "buildNumber": "1"
     }
   }
 }
