@@ -6,6 +6,7 @@ import App from './App';
 import MobileIntegrationHub from './MobileIntegrationHub';
 
 type Board = { id: string; name: string };
+type Card = { id: string; list_id: string; title: string; description?: string | null; due_at?: string | null; assignee_id?: string | null; priority?: string | null };
 
 const url = process.env.EXPO_PUBLIC_SUPABASE_URL;
 const key = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
@@ -15,6 +16,7 @@ export default function AppIntegrated() {
   const [userId, setUserId] = useState<string | null>(null);
   const [boards, setBoards] = useState<Board[]>([]);
   const [selectedBoard, setSelectedBoard] = useState<string | null>(null);
+  const [openCardId, setOpenCardId] = useState<string | null>(null);
 
   useEffect(() => {
     if (!supabase) return;
@@ -25,7 +27,7 @@ export default function AppIntegrated() {
   }, []);
 
   useEffect(() => {
-    if (!supabase || !userId) { setBoards([]); setSelectedBoard(null); return; }
+    if (!supabase || !userId) { setBoards([]); setSelectedBoard(null); setOpenCardId(null); return; }
     let alive = true;
     const loadBoards = async () => {
       const { data } = await supabase.from('boards').select('id,name').order('updated_at', { ascending: false });
@@ -42,9 +44,9 @@ export default function AppIntegrated() {
   }, [userId]);
 
   return <View style={styles.root}>
-    <App selectedBoard={selectedBoard} onSelectedBoardChange={setSelectedBoard} />
+    <App selectedBoard={selectedBoard} onSelectedBoardChange={setSelectedBoard} openCardId={openCardId} onOpenCardHandled={() => setOpenCardId(null)} />
     {supabase && userId ? <View pointerEvents="box-none" style={styles.overlay}>
-      <MobileIntegrationHub supabase={supabase} userId={userId} selectedBoard={selectedBoard} boards={boards} onSelectedBoardChange={setSelectedBoard} />
+      <MobileIntegrationHub supabase={supabase} userId={userId} selectedBoard={selectedBoard} boards={boards} onSelectedBoardChange={setSelectedBoard} onOpenCard={(card: Card) => setOpenCardId(card.id)} />
     </View> : null}
   </View>;
 }
