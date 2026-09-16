@@ -4,6 +4,7 @@ import { StyleSheet, Text, View } from 'react-native';
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import App from './App';
 import MobileIntegrationHub from './MobileIntegrationHub';
+import { BRANDING } from './branding';
 
 type Board = { id: string; name: string };
 type Card = { id: string; list_id: string; title: string; description?: string | null; due_at?: string | null; assignee_id?: string | null; priority?: string | null };
@@ -59,7 +60,16 @@ export default function AppIntegrated() {
   useEffect(() => { setOpenCardId(null); }, [selectedBoard]);
 
   return <View style={styles.root}>
-    <App selectedBoard={selectedBoard} onSelectedBoardChange={setSelectedBoard} openCardId={openCardId} onOpenCardHandled={() => setOpenCardId(null)} onNavigate={setView} />
+    <View style={styles.brandHeader}>
+      <View style={styles.brandMark}><Text style={styles.brandMarkText}>{BRANDING.monogram}</Text></View>
+      <View style={styles.brandCopy}>
+        <Text style={styles.brandName}>{BRANDING.appName}</Text>
+        <Text style={styles.brandTagline}>{BRANDING.tagline}</Text>
+      </View>
+    </View>
+    <View style={styles.appArea}>
+      <App selectedBoard={selectedBoard} onSelectedBoardChange={setSelectedBoard} openCardId={openCardId} onOpenCardHandled={() => setOpenCardId(null)} onNavigate={setView} />
+    </View>
     {loadingBoards ? <View pointerEvents="none" style={styles.loading}><Text style={styles.loadingText}>Arbeitsbereiche werden synchronisiert …</Text></View> : null}
     {boardError ? <View pointerEvents="none" style={styles.error}><Text style={styles.errorText}>Board-Synchronisierung: {boardError}</Text></View> : null}
     {supabase && userId ? <View pointerEvents="box-none" style={styles.overlay}>
@@ -68,4 +78,18 @@ export default function AppIntegrated() {
   </View>;
 }
 
-const styles = StyleSheet.create({ root:{flex:1}, overlay:{position:'absolute',left:0,right:0,bottom:0,paddingBottom:8,backgroundColor:'rgba(248,250,252,0.96)',borderTopWidth:1,borderTopColor:'#e5e7eb'}, loading:{position:'absolute',top:8,left:16,right:16,padding:9,borderRadius:10,backgroundColor:'#111827',alignItems:'center'}, loadingText:{color:'#fff',fontSize:12,fontWeight:'600'}, error:{position:'absolute',top:42,left:16,right:16,padding:9,borderRadius:10,backgroundColor:'#fef2f2',borderWidth:1,borderColor:'#fecaca'}, errorText:{color:'#991b1b',fontSize:12} });
+const styles = StyleSheet.create({
+  root: { flex: 1, backgroundColor: '#f8fafc' },
+  appArea: { flex: 1 },
+  brandHeader: { height: 64, paddingHorizontal: 16, flexDirection: 'row', alignItems: 'center', backgroundColor: '#ffffff', borderBottomWidth: 1, borderBottomColor: '#e5e7eb' },
+  brandMark: { width: 38, height: 38, borderRadius: 11, backgroundColor: '#111827', alignItems: 'center', justifyContent: 'center' },
+  brandMarkText: { color: '#ffffff', fontSize: 20, fontWeight: '800' },
+  brandCopy: { marginLeft: 10 },
+  brandName: { color: '#111827', fontSize: 17, fontWeight: '800', letterSpacing: 0.2 },
+  brandTagline: { marginTop: 1, color: '#64748b', fontSize: 11, fontWeight: '500' },
+  overlay: { position: 'absolute', left: 0, right: 0, bottom: 0, paddingBottom: 8, backgroundColor: 'rgba(248,250,252,0.96)', borderTopWidth: 1, borderTopColor: '#e5e7eb' },
+  loading: { position: 'absolute', top: 72, left: 16, right: 16, padding: 9, borderRadius: 10, backgroundColor: '#111827', alignItems: 'center' },
+  loadingText: { color: '#fff', fontSize: 12, fontWeight: '600' },
+  error: { position: 'absolute', top: 106, left: 16, right: 16, padding: 9, borderRadius: 10, backgroundColor: '#fef2f2', borderWidth: 1, borderColor: '#fecaca' },
+  errorText: { color: '#991b1b', fontSize: 12 },
+});
