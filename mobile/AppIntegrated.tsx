@@ -6,12 +6,6 @@ import App from './App';
 import MobileIntegrationHub from './MobileIntegrationHub';
 
 type Board = { id: string; name: string };
-type AppBridge = {
-  userId: string | null;
-  selectedBoard: string | null;
-  onSelectedBoardChange: (boardId: string | null) => void;
-  onUserChange: (userId: string | null) => void;
-};
 
 const url = process.env.EXPO_PUBLIC_SUPABASE_URL;
 const key = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
@@ -47,17 +41,12 @@ export default function AppIntegrated() {
     return () => { alive = false; void supabase.removeChannel(channel); };
   }, [userId]);
 
-  const bridge: AppBridge = useMemo(() => ({
-    userId,
-    selectedBoard,
-    onSelectedBoardChange: setSelectedBoard,
-    onUserChange: setUserId,
-  }), [userId, selectedBoard]);
+  const hubBoards = useMemo(() => boards, [boards]);
 
   return <View style={styles.root}>
-    <App bridge={bridge} />
+    <App />
     {supabase && userId ? <View pointerEvents="box-none" style={styles.overlay}>
-      <MobileIntegrationHub supabase={supabase} userId={userId} selectedBoard={selectedBoard} boards={boards} onSelectedBoardChange={setSelectedBoard} onOpenCard={bridge.onOpenCard} />
+      <MobileIntegrationHub supabase={supabase} userId={userId} selectedBoard={selectedBoard} boards={hubBoards} onSelectedBoardChange={setSelectedBoard} />
     </View> : null}
   </View>;
 }
