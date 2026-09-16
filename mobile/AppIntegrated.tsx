@@ -1,5 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import App from './App';
@@ -26,13 +26,28 @@ export default function AppIntegrated() {
   useEffect(() => {
     if (!supabase || !userId) { setBoards([]); return; }
     let alive = true;
-    void supabase.from('boards').select('id,name').order('updated_at', { ascending: false }).then(({ data }) => { if (alive) setBoards((data ?? []) as Board[]); });
-    return () => { alive = false; };
+    const loadBoards = async () => {
+      const { data } = await supabase.from('boards').select('id,name').order('updated_at', { ascending: false });
+      if (alive) setBoards((data ?? []) as Board[]);
+    };
+    void loadBoards();
+    const channel = supabase.channel(`mobile-integrated-boards-${userId}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'boards' }, () => void loadBoards())
+      .subscribe();
+    return () => { alive = false; void supabase.removeChannel(channel); };
   }, [userId]);
 
-  const activeBoard = useMemo(() => boards[0]?.id ?? null, [boards]);
-
-  return <View style={styles.root}><App />{supabase && userId ? <View pointerEvents="box-none" style={styles.overlay}><MobileIntegrationHub supabase={supabase} userId={userId} selectedBoard={activeBoard} boards={boards} /></View> : null}</View>;
+  return <View style={styles.root}>
+    <App />
+    {supabase && userId ? (
+      <View pointerEvents="box-none" style={styles.overlay}>
+        <MobileIntegrationHub supabase={supabase} userId={userId} selectedBoard={boards[0]?.id ?? null} boards={boards} />
+      </View>
+    ) : null}
+  </View>;
 }
 
-const styles = StyleSheet.create({ root:{flex:1}, overlay:{position:'absolute',left:0,right:0,bottom:0,paddingBottom:8,backgroundColor:'rgba(248,250,252,0.96)',borderTopWidth:1,borderTopColor:'#e5e7eb'} });
+const styles = StyleSheet.create({
+  root: { flex: 1 },
+  overlay: { position: 'absolute', left: 0, right: 0, bottom: 0, paddingBottom: 8, backgroundColor: 'rgba(248,250,252,0.96)', borderTopWidth: 1, borderTopColor: '#e5e7eb' },
+});
