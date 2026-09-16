@@ -1,5 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import App from './App';
@@ -41,12 +41,10 @@ export default function AppIntegrated() {
     return () => { alive = false; void supabase.removeChannel(channel); };
   }, [userId]);
 
-  const hubBoards = useMemo(() => boards, [boards]);
-
   return <View style={styles.root}>
-    <App />
+    <App selectedBoard={selectedBoard} onSelectedBoardChange={setSelectedBoard} />
     {supabase && userId ? <View pointerEvents="box-none" style={styles.overlay}>
-      <MobileIntegrationHub supabase={supabase} userId={userId} selectedBoard={selectedBoard} boards={hubBoards} onSelectedBoardChange={setSelectedBoard} />
+      <MobileIntegrationHub supabase={supabase} userId={userId} selectedBoard={selectedBoard} boards={boards} onSelectedBoardChange={setSelectedBoard} />
     </View> : null}
   </View>;
 }
