@@ -55,8 +55,10 @@ jobs:
           files = [Path('mobile/App.tsx'), Path('mobile/AppIntegrated.tsx'), Path('mobile/MobileIntegrationHub.tsx')]
           replacements = {
               'type View = ': 'type AppView = ',
+              'view?: View | null': 'view?: AppView | null',
               'view: View | null': 'view: AppView | null',
               'view: View': 'view: AppView',
+              'next: View | null': 'next: AppView | null',
               'useState<View | null>': 'useState<AppView | null>',
               'onNavigate?: (view: View | null)': 'onNavigate?: (view: AppView | null)',
               'Boolean(id) && listIdsRef.current.has(id)': 'Boolean(id) && listIdsRef.current.has(id as string)',
