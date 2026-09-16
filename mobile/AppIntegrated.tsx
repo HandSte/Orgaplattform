@@ -7,6 +7,7 @@ import MobileIntegrationHub from './MobileIntegrationHub';
 
 type Board = { id: string; name: string };
 type Card = { id: string; list_id: string; title: string; description?: string | null; due_at?: string | null; assignee_id?: string | null; priority?: string | null };
+type View = 'tasks' | 'calendar' | 'documents' | 'team';
 
 const url = process.env.EXPO_PUBLIC_SUPABASE_URL;
 const key = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
@@ -17,6 +18,7 @@ export default function AppIntegrated() {
   const [boards, setBoards] = useState<Board[]>([]);
   const [selectedBoard, setSelectedBoard] = useState<string | null>(null);
   const [openCardId, setOpenCardId] = useState<string | null>(null);
+  const [view, setView] = useState<View | null>(null);
 
   useEffect(() => {
     if (!supabase) return;
@@ -27,7 +29,7 @@ export default function AppIntegrated() {
   }, []);
 
   useEffect(() => {
-    if (!supabase || !userId) { setBoards([]); setSelectedBoard(null); setOpenCardId(null); return; }
+    if (!supabase || !userId) { setBoards([]); setSelectedBoard(null); setOpenCardId(null); setView(null); return; }
     let alive = true;
     const loadBoards = async () => {
       const { data } = await supabase.from('boards').select('id,name').order('updated_at', { ascending: false });
@@ -44,9 +46,9 @@ export default function AppIntegrated() {
   }, [userId]);
 
   return <View style={styles.root}>
-    <App selectedBoard={selectedBoard} onSelectedBoardChange={setSelectedBoard} openCardId={openCardId} onOpenCardHandled={() => setOpenCardId(null)} />
+    <App selectedBoard={selectedBoard} onSelectedBoardChange={setSelectedBoard} openCardId={openCardId} onOpenCardHandled={() => setOpenCardId(null)} onNavigate={setView} />
     {supabase && userId ? <View pointerEvents="box-none" style={styles.overlay}>
-      <MobileIntegrationHub supabase={supabase} userId={userId} selectedBoard={selectedBoard} boards={boards} onSelectedBoardChange={setSelectedBoard} onOpenCard={(card: Card) => setOpenCardId(card.id)} />
+      <MobileIntegrationHub supabase={supabase} userId={userId} selectedBoard={selectedBoard} boards={boards} onSelectedBoardChange={setSelectedBoard} onOpenCard={(card: Card) => setOpenCardId(card.id)} view={view} onViewChange={setView} />
     </View> : null}
   </View>;
 }
