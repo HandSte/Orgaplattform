@@ -12,7 +12,7 @@ type Card = { id: string; list_id: string; title: string; description?: string |
 type Profile = { id: string; full_name: string | null };
 type SessionUser = { id: string; email?: string | null };
 type BoardRole = 'owner' | 'admin' | 'member' | 'viewer';
-type AppProps = { selectedBoard?: string | null; onSelectedBoardChange?: (boardId: string) => void };
+type AppProps = { selectedBoard?: string | null; onSelectedBoardChange?: (boardId: string) => void; openCardId?: string | null; onOpenCardHandled?: () => void };
 
 const url = process.env.EXPO_PUBLIC_SUPABASE_URL;
 const key = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
@@ -20,7 +20,7 @@ const supabase: SupabaseClient | null = url && key ? createClient(url, key, { au
 const priorities = ['low', 'normal', 'high', 'urgent'];
 const priorityLabels: Record<string, string> = { low: 'Niedrig', normal: 'Normal', high: 'Hoch', urgent: 'Dringend' };
 
-export default function App({ selectedBoard: controlledBoard, onSelectedBoardChange }: AppProps = {}) {
+export default function App({ selectedBoard: controlledBoard, onSelectedBoardChange, openCardId, onOpenCardHandled }: AppProps = {}) {
   const [user, setUser] = useState<SessionUser | null>(null);
   const [email, setEmail] = useState(''); const [password, setPassword] = useState('');
   const [authMode, setAuthMode] = useState<'login' | 'signup'>('login'); const [authBusy, setAuthBusy] = useState(false); const [message, setMessage] = useState('');
@@ -37,6 +37,14 @@ export default function App({ selectedBoard: controlledBoard, onSelectedBoardCha
     if (controlledBoard === undefined) return;
     if (controlledBoard === null || boards.some(board => board.id === controlledBoard)) setSelectedBoard(controlledBoard);
   }, [controlledBoard, boards]);
+
+  useEffect(() => {
+    if (!openCardId || !cards.length) return;
+    const requestedCard = cards.find(card => card.id === openCardId);
+    if (!requestedCard) return;
+    openCard(requestedCard);
+    onOpenCardHandled?.();
+  }, [openCardId, cards]);
 
   useEffect(() => {
     if (!supabase) return;
