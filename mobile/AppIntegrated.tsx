@@ -7,7 +7,7 @@ import MobileIntegrationHub from './MobileIntegrationHub';
 
 type Board = { id: string; name: string };
 type Card = { id: string; list_id: string; title: string; description?: string | null; due_at?: string | null; assignee_id?: string | null; priority?: string | null };
-type View = 'tasks' | 'calendar' | 'documents' | 'team';
+type AppView = 'tasks' | 'calendar' | 'documents' | 'team';
 
 const url = process.env.EXPO_PUBLIC_SUPABASE_URL;
 const key = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
@@ -18,7 +18,7 @@ export default function AppIntegrated() {
   const [boards, setBoards] = useState<Board[]>([]);
   const [selectedBoard, setSelectedBoard] = useState<string | null>(null);
   const [openCardId, setOpenCardId] = useState<string | null>(null);
-  const [view, setView] = useState<View | null>(null);
+  const [view, setView] = useState<AppView | null>(null);
   const [loadingBoards, setLoadingBoards] = useState(false);
   const [boardError, setBoardError] = useState('');
   const boardLoadSeq = useRef(0);

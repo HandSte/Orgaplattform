@@ -9,12 +9,12 @@ type Card = { id: string; list_id: string; title: string; description?: string |
 type Profile = { id: string; full_name: string | null };
 type Member = { user_id: string; role: string };
 type Attachment = { id: string; card_id: string; file_name: string; mime_type?: string | null; size_bytes?: number | null; storage_path: string; created_at: string };
-type View = 'tasks' | 'calendar' | 'documents' | 'team';
+type AppView = 'tasks' | 'calendar' | 'documents' | 'team';
 
-type Props = { supabase: SupabaseClient; userId: string; selectedBoard: string | null; boards: Board[]; onSelectedBoardChange?: (boardId: string) => void; onOpenCard?: (card: Card) => void; view?: View | null; onViewChange?: (view: View | null) => void };
+type Props = { supabase: SupabaseClient; userId: string; selectedBoard: string | null; boards: Board[]; onSelectedBoardChange?: (boardId: string) => void; onOpenCard?: (card: Card) => void; view?: View | null; onViewChange?: (view: AppView | null) => void };
 
 export default function MobileIntegrationHub({ supabase, userId, selectedBoard, boards, onSelectedBoardChange, onOpenCard, view: controlledView, onViewChange }: Props) {
-  const [localView, setLocalView] = useState<View | null>(controlledView ?? null);
+  const [localView, setLocalView] = useState<AppView | null>(controlledView ?? null);
   const view = controlledView !== undefined ? controlledView : localView;
   const changeView = (next: View | null) => { setLocalView(next); onViewChange?.(next); };
   const [selectedCard, setSelectedCard] = useState<Card | null>(null);
