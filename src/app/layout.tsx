@@ -3,6 +3,7 @@ import ListDragEnhancer from '@/components/ListDragEnhancer';
 import GlobalNavigation from '@/components/GlobalNavigation';
 import './globals.css';
 import './branding.css';
+import './workspace.css';
 import './boards/workspace-enhancements.css';
 
 export const metadata: Metadata = {
