@@ -48,6 +48,46 @@ jobs:
             git push
           fi
 
+      - name: Repair mobile TypeScript errors
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          files = [Path('mobile/App.tsx'), Path('mobile/AppIntegrated.tsx'), Path('mobile/MobileIntegrationHub.tsx')]
+          replacements = {
+              'type View = ': 'type AppView = ',
+              'view: View | null': 'view: AppView | null',
+              'view: View': 'view: AppView',
+              'useState<View | null>': 'useState<AppView | null>',
+              'onNavigate?: (view: View | null)': 'onNavigate?: (view: AppView | null)',
+              'Boolean(id) && listIdsRef.current.has(id)': 'Boolean(id) && listIdsRef.current.has(id as string)',
+          }
+          changed = False
+          for path in files:
+              text = path.read_text()
+              original = text
+              for old, new in replacements.items():
+                  text = text.replace(old, new)
+              if text != original:
+                  path.write_text(text)
+                  changed = True
+          if changed:
+              print('Applied mobile TypeScript repairs.')
+          else:
+              print('Mobile TypeScript repairs already present.')
+          PY
+
+      - name: Commit mobile TypeScript repairs
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add mobile/App.tsx mobile/AppIntegrated.tsx mobile/MobileIntegrationHub.tsx
+          if git diff --cached --quiet; then
+            echo "No mobile TypeScript repairs to commit."
+          else
+            git commit -m "fix: repair mobile typecheck errors"
+            git push
+          fi
+
       - name: Install web
         run: npm ci --no-audit --no-fund
 
