@@ -4,7 +4,7 @@ import GlobalNavigation from '@/components/GlobalNavigation';
 import './globals.css';
 import './branding.css';
 import './workspace.css';
-import './workspace-global-fixes.css';
+import './workspace-layout-fixes.css';
 import './boards/workspace-enhancements.css';
 
 export const metadata: Metadata = {
