@@ -1,5 +1,65 @@
+'use client';
+
+import { useEffect, useMemo, useState } from 'react';
 import WorkspaceModulePage from '@/components/WorkspaceModulePage';
+import { supabase } from '@/lib/supabase-browser';
+import type { Card, List } from '@/lib/types';
+
+type Row = Card & { listName: string; boardId: string; boardName: string };
 
 export default function TasksPage() {
-  return <WorkspaceModulePage title="Aufgaben" eyebrow="Arbeitsbereich" active="Aufgaben" description="Alle Aufgaben zentral durchsuchen, filtern und nach Fälligkeit oder Priorität bearbeiten."><section className="module-grid"><article className="module-card"><p className="eyebrow">Aufgabenübersicht</p><h2>Meine Aufgaben</h2><p>Hier entsteht die zentrale Aufgabenansicht über alle Boards hinweg.</p><a className="primary button-link" href="/">Board öffnen</a></article><article className="module-card"><p className="eyebrow">Filter</p><h2>Fälligkeit & Priorität</h2><p>Überfällige, heute fällige und wichtige Aufgaben werden hier gebündelt.</p></article></section></WorkspaceModulePage>;
+  const [rows, setRows] = useState<Row[]>([]);
+  const [userId, setUserId] = useState<string | null>(null);
+  const [query, setQuery] = useState('');
+  const [filter, setFilter] = useState<'all' | 'mine' | 'overdue' | 'today' | 'high'>('all');
+  const [loading, setLoading] = useState(true);
+  const [notice, setNotice] = useState('');
+
+  async function load() {
+    if (!supabase) return;
+    setLoading(true);
+    const { data: session } = await supabase.auth.getSession();
+    const user = session.session?.user;
+    setUserId(user?.id ?? null);
+    if (!user) { setRows([]); setLoading(false); return; }
+    const { data: boards, error: boardError } = await supabase.from('boards').select('id,name');
+    if (boardError) { setNotice(boardError.message); setLoading(false); return; }
+    const boardMap = new Map((boards ?? []).map((b: { id: string; name: string }) => [b.id, b.name]));
+    const boardIds = [...boardMap.keys()];
+    if (!boardIds.length) { setRows([]); setLoading(false); return; }
+    const { data: lists, error: listError } = await supabase.from('lists').select('id,name,board_id').in('board_id', boardIds);
+    if (listError) { setNotice(listError.message); setLoading(false); return; }
+    const listMap = new Map((lists ?? []).map((l: List) => [l.id, l]));
+    const listIds = [...listMap.keys()];
+    if (!listIds.length) { setRows([]); setLoading(false); return; }
+    const { data: cards, error: cardError } = await supabase.from('cards').select('*').in('list_id', listIds).order('due_at', { ascending: true, nullsFirst: false });
+    if (cardError) { setNotice(cardError.message); setLoading(false); return; }
+    setRows(((cards ?? []) as Card[]).map(card => { const list = listMap.get(card.list_id)!; return { ...card, listName: list.name, boardId: list.board_id, boardName: boardMap.get(list.board_id) ?? 'Board' }; }));
+    setLoading(false);
+  }
+
+  useEffect(() => { void load(); }, []);
+
+  const visible = useMemo(() => {
+    const now = new Date();
+    const start = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const end = new Date(start); end.setDate(end.getDate() + 1);
+    const q = query.trim().toLowerCase();
+    return rows.filter(card => {
+      if (q && !`${card.title} ${card.description ?? ''} ${card.boardName} ${card.listName}`.toLowerCase().includes(q)) return false;
+      if (filter === 'mine' && card.assignee_id !== userId) return false;
+      if (filter === 'high' && card.priority !== 'high' && card.priority !== 'urgent') return false;
+      if (filter === 'overdue') return !!card.due_at && new Date(card.due_at) < now;
+      if (filter === 'today') return !!card.due_at && new Date(card.due_at) >= start && new Date(card.due_at) < end;
+      return true;
+    });
+  }, [rows, query, filter, userId]);
+
+  return <WorkspaceModulePage title="Aufgaben" eyebrow="Arbeitsbereich" active="Aufgaben" description="Alle Aufgaben zentral durchsuchen, filtern und nach Fälligkeit oder Priorität bearbeiten.">
+    <section className="module-grid"><article className="module-card module-card-wide">
+      <div className="module-toolbar"><div><strong>{visible.length}</strong><span className="muted"> Aufgaben</span></div><input className="module-search" value={query} onChange={e => setQuery(e.target.value)} placeholder="Aufgaben durchsuchen …"/><select value={filter} onChange={e => setFilter(e.target.value as typeof filter)}><option value="all">Alle</option><option value="mine">Meine Aufgaben</option><option value="today">Heute fällig</option><option value="overdue">Überfällig</option><option value="high">Hohe Priorität</option></select><button className="ghost" onClick={() => void load()}>Aktualisieren</button></div>
+      {notice && <div className="notice">{notice}<button onClick={() => setNotice('')}>×</button></div>}
+      {loading ? <p className="muted">Aufgaben werden geladen …</p> : visible.length === 0 ? <div className="empty-state"><h3>Keine passenden Aufgaben</h3><p>Ändere den Filter oder öffne ein Board, um neue Aufgaben anzulegen.</p><a className="primary button-link" href="/">Boards öffnen</a></div> : <div className="task-list">{visible.map(card => <a className="task-row" key={card.id} href={`/?board=${card.boardId}`}><div><strong>{card.title}</strong><span>{card.boardName} · {card.listName}</span></div><div className="task-meta"><span>{card.priority === 'urgent' ? 'Dringend' : card.priority === 'high' ? 'Hoch' : card.priority === 'low' ? 'Niedrig' : 'Normal'}</span><span>{card.due_at ? new Date(card.due_at).toLocaleDateString('de-DE') : 'Kein Termin'}</span></div></a>)}</div>}
+    </article></section>
+  </WorkspaceModulePage>;
 }
