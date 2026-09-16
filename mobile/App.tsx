@@ -86,11 +86,13 @@ export default function App({ selectedBoard: controlledBoard, onSelectedBoardCha
     const channel = supabase.channel(`mobile-board-${selectedBoard}`)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'lists', filter: `board_id=eq.${selectedBoard}` }, () => void loadBoard(selectedBoard))
       .on('postgres_changes', { event: '*', schema: 'public', table: 'cards' }, payload => {
-        const card = payload.new as Card;
-        if (payload.eventType !== 'DELETE' && !listIdsRef.current.has(card.list_id)) return;
-        if (payload.eventType === 'INSERT') setCards(v => v.some(x => x.id === card.id) ? v : [...v, card]);
-        if (payload.eventType === 'UPDATE') setCards(v => v.some(x => x.id === card.id) ? v.map(x => x.id === card.id ? card : x) : [...v, card]);
-        if (payload.eventType === 'DELETE') setCards(v => v.filter(x => x.id !== payload.old.id));
+        const oldCard = payload.old as Partial<Card>;
+        const newCard = payload.new as Partial<Card>;
+        const relevant = [oldCard.list_id, newCard.list_id].some(id => Boolean(id) && listIdsRef.current.has(id));
+        if (!relevant) return;
+        if (payload.eventType === 'INSERT') setCards(v => v.some(x => x.id === newCard.id) ? v : [...v, newCard as Card]);
+        if (payload.eventType === 'UPDATE') setCards(v => v.some(x => x.id === newCard.id) ? v.map(x => x.id === newCard.id ? newCard as Card : x) : [...v, newCard as Card]);
+        if (payload.eventType === 'DELETE') setCards(v => v.filter(x => x.id !== oldCard.id));
       }).subscribe();
     return () => { void supabase.removeChannel(channel); };
   }, [selectedBoard, user]);
