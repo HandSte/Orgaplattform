@@ -6,6 +6,7 @@
     "orientation": "default",
     "userInterfaceStyle": "light",
     "newArchEnabled": true,
+    "scheme": "orgaplattform",
     "android": {
       "package": "de.handste.orgaplattform",
       "permissions": []
