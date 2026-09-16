@@ -10,7 +10,9 @@
     "ios": "expo start --ios",
     "typecheck": "tsc --noEmit",
     "build:android:preview": "npx eas build --platform android --profile preview",
-    "build:ios:preview": "npx eas build --platform ios --profile preview"
+    "build:android": "npx eas build --platform android --profile production",
+    "build:ios:preview": "npx eas build --platform ios --profile preview",
+    "build:ios": "npx eas build --platform ios --profile production"
   },
   "dependencies": {
     "@react-native-async-storage/async-storage": "latest",
