@@ -19,7 +19,6 @@ export default function MobileIntegrationHub({ supabase, userId, selectedBoard, 
   const [profiles, setProfiles] = useState<Profile[]>([]);
   const [members, setMembers] = useState<Member[]>([]);
   const [attachments, setAttachments] = useState<Attachment[]>([]);
-
   const boardIds = useMemo(() => selectedBoard ? [selectedBoard] : boards.map(b => b.id), [selectedBoard, boards]);
 
   async function loadData() {
@@ -59,8 +58,7 @@ export default function MobileIntegrationHub({ supabase, userId, selectedBoard, 
 
   useEffect(() => {
     if (!view) return;
-    let alive = true;
-    void loadData().then(() => { if (!alive) return; });
+    void loadData();
     const channel = supabase.channel(`mobile-hub-${selectedBoard ?? 'all'}`)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'lists' }, () => void loadData())
       .on('postgres_changes', { event: '*', schema: 'public', table: 'cards' }, () => void loadData())
@@ -68,7 +66,7 @@ export default function MobileIntegrationHub({ supabase, userId, selectedBoard, 
       .on('postgres_changes', { event: '*', schema: 'public', table: 'board_members' }, () => void loadData())
       .on('postgres_changes', { event: '*', schema: 'public', table: 'profiles' }, () => void loadData())
       .subscribe();
-    return () => { alive = false; void supabase.removeChannel(channel); };
+    return () => { void supabase.removeChannel(channel); };
   }, [view, selectedBoard, userId, boardIds.join(','), supabase]);
 
   const listMap = useMemo(() => new Map(lists.map(l => [l.id, l])), [lists]);
@@ -83,11 +81,8 @@ export default function MobileIntegrationHub({ supabase, userId, selectedBoard, 
   }
 
   async function deleteAttachment(item: Attachment) {
-    const card = cards.find(c => c.id === item.card_id);
-    const list = card ? listMap.get(card.list_id) : undefined;
     const role = members.find(m => m.user_id === userId)?.role;
-    const allowed = role === 'owner' || role === 'admin';
-    if (!card || !list || !allowed) return;
+    if (role !== 'owner' && role !== 'admin') return;
     Alert.alert('Dokument löschen', `„${item.file_name}“ wirklich löschen?`, [
       { text: 'Abbrechen', style: 'cancel' },
       { text: 'Löschen', style: 'destructive', onPress: async () => {
@@ -128,5 +123,5 @@ function Tab({ label, active, onPress }: { label: string; active: boolean; onPre
 function Empty({ text }: { text: string }) { return <View style={styles.empty}><Text>{text}</Text></View>; }
 
 const styles = StyleSheet.create({
-  safe:{flex:1,backgroundColor:'#f8fafc'}, row:{flexDirection:'row',paddingHorizontal:12,paddingBottom:8,gap:6}, tab:{flex:1,minHeight:40,borderRadius:10,borderWidth:1,borderColor:'#d1d5db',alignItems:'center',justifyContent:'center',backgroundColor:'#fff'}, tabActive:{backgroundColor:'#111827',borderColor:'#111827'}, tabText:{fontSize:12}, tabTextActive:{fontSize:12,color:'#fff',fontWeight:'700'}, header:{padding:16,paddingTop:18,flexDirection:'row',justifyContent:'space-between',alignItems:'center',borderBottomWidth:1,borderBottomColor:'#e5e7eb'}, title:{fontSize:24,fontWeight:'800'}, close:{fontSize:14,fontWeight:'700'}, content:{padding:16,gap:10}, center:{flex:1,justifyContent:'center',alignItems:'center'}, card:{backgroundColor:'#fff',borderWidth:1,borderColor:'#e5e7eb',borderRadius:14,padding:14}, cardTitle:{fontSize:16,fontWeight:'700'}, meta:{fontSize:12,color:'#6b7280',marginTop:4}, date:{fontSize:13,fontWeight:'700',marginBottom:4}, link:{fontSize:13,fontWeight:'700',marginTop:8}, delete:{fontSize:13,fontWeight:'700',marginTop:12}, error:{color:'#b91c1c',padding:12,backgroundColor:'#fee2e2',borderRadius:10}, empty:{padding:24,alignItems:'center'}, link:{fontSize:13,fontWeight:'700',marginTop:8}
+  safe:{flex:1,backgroundColor:'#f8fafc'}, row:{flexDirection:'row',paddingHorizontal:12,paddingBottom:8,gap:6}, tab:{flex:1,minHeight:40,borderRadius:10,borderWidth:1,borderColor:'#d1d5db',alignItems:'center',justifyContent:'center',backgroundColor:'#fff'}, tabActive:{backgroundColor:'#111827',borderColor:'#111827'}, tabText:{fontSize:12}, tabTextActive:{fontSize:12,color:'#fff',fontWeight:'700'}, header:{padding:16,paddingTop:18,flexDirection:'row',justifyContent:'space-between',alignItems:'center',borderBottomWidth:1,borderBottomColor:'#e5e7eb'}, title:{fontSize:24,fontWeight:'800'}, close:{fontSize:14,fontWeight:'700'}, content:{padding:16,gap:10}, center:{flex:1,justifyContent:'center',alignItems:'center'}, card:{backgroundColor:'#fff',borderWidth:1,borderColor:'#e5e7eb',borderRadius:14,padding:14}, cardTitle:{fontSize:16,fontWeight:'700'}, meta:{fontSize:12,color:'#6b7280',marginTop:4}, date:{fontSize:13,fontWeight:'700',marginBottom:4}, link:{fontSize:13,fontWeight:'700',marginTop:8}, error:{color:'#b91c1c',padding:12,backgroundColor:'#fee2e2',borderRadius:10}, empty:{padding:24,alignItems:'center'}, delete:{fontSize:13,fontWeight:'700',marginTop:12}
 });
