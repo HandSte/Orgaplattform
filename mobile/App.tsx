@@ -30,6 +30,7 @@ export default function App({ selectedBoard: controlledBoard, onSelectedBoardCha
   const [editingCard, setEditingCard] = useState<Card | null>(null); const [cardTitle, setCardTitle] = useState(''); const [cardDescription, setCardDescription] = useState(''); const [cardPriority, setCardPriority] = useState('normal'); const [cardListId, setCardListId] = useState(''); const [cardDue, setCardDue] = useState(''); const [cardAssignee, setCardAssignee] = useState(''); const [savingCard, setSavingCard] = useState(false);
   const [showBoardEditor, setShowBoardEditor] = useState(false); const [boardName, setBoardName] = useState(''); const [boardDescription, setBoardDescription] = useState(''); const [savingBoard, setSavingBoard] = useState(false);
   const listIdsRef = useRef<Set<string>>(new Set());
+  const boardLoadSeq = useRef(0);
   const activeBoard = boards.find(b => b.id === selectedBoard) ?? null;
   const canEdit = boardRole !== null && boardRole !== 'viewer';
   const canManage = boardRole === 'owner' || boardRole === 'admin';
@@ -62,7 +63,7 @@ export default function App({ selectedBoard: controlledBoard, onSelectedBoardCha
     const next = (data ?? []) as Board[]; setBoards(next);
     setSelectedBoard(current => current && next.some(b => b.id === current) ? current : controlledBoard && next.some(b => b.id === controlledBoard) ? controlledBoard : next[0]?.id ?? null);
   }
-  useEffect(() => { if (user) void loadBoards(); else { setBoards([]); setSelectedBoard(null); setBoardRole(null); } }, [user]);
+  useEffect(() => { if (user) void loadBoards(); else { ++boardLoadSeq.current; setBoards([]); setSelectedBoard(null); setBoardRole(null); setLists([]); setCards([]); setProfiles([]); listIdsRef.current = new Set(); } }, [user]);
 
   useEffect(() => {
     if (!supabase || !selectedBoard || !user) { setBoardRole(null); return; }
@@ -73,15 +74,19 @@ export default function App({ selectedBoard: controlledBoard, onSelectedBoardCha
 
   async function loadBoard(boardId: string) {
     if (!supabase || !user) return;
+    const requestId = ++boardLoadSeq.current;
     setLoadingBoard(true); listIdsRef.current = new Set();
     const { data, error } = await supabase.rpc('get_board_snapshot', { p_board_id: boardId });
-    if (error) { setMessage(error.message); setLists([]); setCards([]); setLoadingBoard(false); return; }
+    if (requestId !== boardLoadSeq.current) return;
+    if (error) { setMessage(error.message); setLists([]); setCards([]); setProfiles([]); setLoadingBoard(false); return; }
     const snapshot = data as { lists?: List[]; cards?: Card[]; profiles?: Profile[] } | null;
-    const nextLists = snapshot?.lists ?? []; listIdsRef.current = new Set(nextLists.map(x => x.id));
+    const nextLists = snapshot?.lists ?? [];
+    if (requestId !== boardLoadSeq.current) return;
+    listIdsRef.current = new Set(nextLists.map(x => x.id));
     setLists(nextLists); setCards(snapshot?.cards ?? []); setProfiles(snapshot?.profiles ?? []); setLoadingBoard(false);
   }
   useEffect(() => {
-    if (!selectedBoard || !user || !supabase) return;
+    if (!selectedBoard || !user || !supabase) { ++boardLoadSeq.current; setLoadingBoard(false); listIdsRef.current = new Set(); return; }
     void loadBoard(selectedBoard);
     const channel = supabase.channel(`mobile-board-${selectedBoard}`)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'lists', filter: `board_id=eq.${selectedBoard}` }, () => void loadBoard(selectedBoard))
@@ -94,7 +99,7 @@ export default function App({ selectedBoard: controlledBoard, onSelectedBoardCha
         if (payload.eventType === 'UPDATE') setCards(v => v.some(x => x.id === newCard.id) ? v.map(x => x.id === newCard.id ? newCard as Card : x) : [...v, newCard as Card]);
         if (payload.eventType === 'DELETE') setCards(v => v.filter(x => x.id !== oldCard.id));
       }).subscribe();
-    return () => { void supabase.removeChannel(channel); };
+    return () => { ++boardLoadSeq.current; void supabase.removeChannel(channel); };
   }, [selectedBoard, user]);
 
   async function submitAuth() {
