@@ -2,12 +2,14 @@
 
 import { useEffect } from 'react';
 import { supabase } from '@/lib/supabase-browser';
+import './ListDragEnhancer.css';
 
 export default function ListDragEnhancer() {
   useEffect(() => {
     const install = () => {
       const columns = Array.from(document.querySelectorAll<HTMLElement>('.kanban-column'));
-      if (!columns.length || !supabase || !document.querySelector('.add-column')) return;
+      if (!columns.length || !supabase) return;
+      if (!document.querySelector('.add-column') && !document.querySelector('.add-card-link')) return;
       let dragged: HTMLElement | null = null;
       columns.forEach((column) => {
         if (column.dataset.listDragInstalled === 'true') return;
@@ -45,7 +47,10 @@ export default function ListDragEnhancer() {
           const target = lists[columns.indexOf(column)] as { id: string } | undefined;
           if (!source || !target) return;
           const result = await supabase.rpc('move_list', { p_list_id: source.id, p_before_list_id: target.id });
-          if (result.error) return;
+          if (result.error) {
+            window.dispatchEvent(new CustomEvent('essentia:notice', { detail: result.error.message }));
+            return;
+          }
           window.location.reload();
         });
       });
