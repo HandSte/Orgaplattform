@@ -114,21 +114,35 @@ export default function App({ selectedBoard: controlledBoard, onSelectedBoardCha
   }
   function openNewCard(listId: string) { if (!canEdit) return; setEditingCard({ id: '', list_id: listId, title: '', description: '', position: 0, priority: 'normal' }); setCardTitle(''); setCardDescription(''); setCardPriority('normal'); setCardListId(listId); setCardDue(''); setCardAssignee(''); }
   async function saveCard() {
-    if (!supabase || !editingCard || !cardTitle.trim() || !canEdit) return; setSavingCard(true);
+    if (!supabase || !editingCard || !cardTitle.trim() || !canEdit || savingCard) return;
+    setSavingCard(true);
     const due_at = cardDue ? `${cardDue}T23:59:59Z` : null;
+    let succeeded = false;
     if (editingCard.id) {
       const { data, error } = await supabase.from('cards').update({ title: cardTitle.trim(), description: cardDescription.trim() || null, priority: cardPriority, assignee_id: cardAssignee || null, due_at }).eq('id', editingCard.id).select('*').single();
-      if (error) Alert.alert('Karte speichern', error.message); else if (data) {
+      if (error) Alert.alert('Karte speichern', error.message);
+      else if (data) {
         let saved = data as Card;
-        if (cardListId !== editingCard.list_id) { const moved = await supabase.rpc('move_card', { p_card_id: editingCard.id, p_target_list_id: cardListId, p_before_card_id: null }); if (moved.error || !moved.data) Alert.alert('Verschieben', moved.error?.message ?? 'Karte konnte nicht verschoben werden.'); else saved = moved.data as Card; }
+        if (cardListId !== editingCard.list_id) {
+          const moved = await supabase.rpc('move_card', { p_card_id: editingCard.id, p_target_list_id: cardListId, p_before_card_id: null });
+          if (moved.error || !moved.data) {
+            Alert.alert('Verschieben', moved.error?.message ?? 'Karte konnte nicht verschoben werden.');
+          } else {
+            saved = moved.data as Card;
+            succeeded = true;
+          }
+        } else {
+          succeeded = true;
+        }
         setCards(v => v.map(c => c.id === saved.id ? saved : c));
       }
     } else {
       const positions = cards.filter(c => c.list_id === cardListId).map(c => Number(c.position) || 0); const position = positions.length ? Math.max(...positions) + 1 : 0;
       const { data, error } = await supabase.from('cards').insert({ list_id: cardListId, title: cardTitle.trim(), description: cardDescription.trim() || null, priority: cardPriority, position, assignee_id: cardAssignee || null, due_at }).select('*').single();
-      if (error) Alert.alert('Karte anlegen', error.message); else if (data) setCards(v => [...v, data as Card]);
+      if (error) Alert.alert('Karte anlegen', error.message); else if (data) { setCards(v => [...v, data as Card]); succeeded = true; }
     }
-    setSavingCard(false); setEditingCard(null);
+    setSavingCard(false);
+    if (succeeded) setEditingCard(null);
   }
   function deleteCard() {
     if (!supabase || !editingCard?.id || !canEdit) return;
