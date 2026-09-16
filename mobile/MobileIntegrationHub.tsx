@@ -11,10 +11,12 @@ type Member = { user_id: string; role: string };
 type Attachment = { id: string; card_id: string; file_name: string; mime_type?: string | null; size_bytes?: number | null; storage_path: string; created_at: string };
 type View = 'tasks' | 'calendar' | 'documents' | 'team';
 
-type Props = { supabase: SupabaseClient; userId: string; selectedBoard: string | null; boards: Board[]; onSelectedBoardChange?: (boardId: string) => void; onOpenCard?: (card: Card) => void };
+type Props = { supabase: SupabaseClient; userId: string; selectedBoard: string | null; boards: Board[]; onSelectedBoardChange?: (boardId: string) => void; onOpenCard?: (card: Card) => void; view?: View | null; onViewChange?: (view: View | null) => void };
 
-export default function MobileIntegrationHub({ supabase, userId, selectedBoard, boards, onSelectedBoardChange, onOpenCard }: Props) {
-  const [view, setView] = useState<View | null>(null);
+export default function MobileIntegrationHub({ supabase, userId, selectedBoard, boards, onSelectedBoardChange, onOpenCard, view: controlledView, onViewChange }: Props) {
+  const [localView, setLocalView] = useState<View | null>(controlledView ?? null);
+  const view = controlledView !== undefined ? controlledView : localView;
+  const changeView = (next: View | null) => { setLocalView(next); onViewChange?.(next); };
   const [selectedCard, setSelectedCard] = useState<Card | null>(null);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState('');
@@ -110,14 +112,14 @@ export default function MobileIntegrationHub({ supabase, userId, selectedBoard, 
 
   return <>
     <View style={styles.row}>
-      <Tab label="Aufgaben" active={view === 'tasks'} onPress={() => setView('tasks')} />
-      <Tab label="Kalender" active={view === 'calendar'} onPress={() => setView('calendar')} />
-      <Tab label="Dokumente" active={view === 'documents'} onPress={() => setView('documents')} />
-      <Tab label="Team" active={view === 'team'} onPress={() => setView('team')} />
+      <Tab label="Aufgaben" active={view === 'tasks'} onPress={() => changeView('tasks')} />
+      <Tab label="Kalender" active={view === 'calendar'} onPress={() => changeView('calendar')} />
+      <Tab label="Dokumente" active={view === 'documents'} onPress={() => changeView('documents')} />
+      <Tab label="Team" active={view === 'team'} onPress={() => changeView('team')} />
     </View>
-    <Modal visible={!!view} animationType="slide" onRequestClose={() => setView(null)}>
+    <Modal visible={!!view} animationType="slide" onRequestClose={() => changeView(null)}>
       <View style={styles.safe}>
-        <View style={styles.header}><View style={styles.headerMain}><Text style={styles.title}>{title}</Text><Text style={styles.meta}>{boardLabel}</Text></View><Pressable onPress={() => setView(null)}><Text style={styles.close}>Schließen</Text></Pressable></View>
+        <View style={styles.header}><View style={styles.headerMain}><Text style={styles.title}>{title}</Text><Text style={styles.meta}>{boardLabel}</Text></View><Pressable onPress={() => changeView(null)}><Text style={styles.close}>Schließen</Text></Pressable></View>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.boardPicker}>
           {boards.map(board => <Pressable key={board.id} onPress={() => onSelectedBoardChange?.(board.id)} style={[styles.boardChip, board.id === selectedBoard && styles.boardChipActive]}><Text style={board.id === selectedBoard ? styles.boardChipTextActive : styles.boardChipText}>{board.name}</Text></Pressable>)}
         </ScrollView>
