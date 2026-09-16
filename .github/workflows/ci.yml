@@ -8,8 +8,11 @@ on:
   workflow_dispatch:
 
 concurrency:
-  group: ci-${{ github.ref }}
+  group: ci-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
+
+permissions:
+  contents: read
 
 jobs:
   build:
@@ -18,20 +21,26 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
           node-version: 24
+          cache: npm
+
       - name: Install web
-        run: npm install --no-audit --no-fund
+        run: npm ci --no-audit --no-fund
+
       - name: Build web
         run: npm run build
         env:
           NEXT_PUBLIC_SUPABASE_URL: https://btfqvxoaawpgrlstkthn.supabase.co
           NEXT_PUBLIC_SUPABASE_ANON_KEY: ci-placeholder
+
       - name: Install mobile
         working-directory: mobile
-        run: npm install --no-audit --no-fund
+        run: npm ci --no-audit --no-fund
+
       - name: Typecheck mobile
         working-directory: mobile
         run: npm run typecheck
