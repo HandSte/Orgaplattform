@@ -10,26 +10,33 @@ permissions:
 
 jobs:
   lockfiles:
-    if: ${{ !contains(github.event.head_commit.message, 'chore: add npm lockfiles') }}
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Skip generated lockfile commit
+        if: ${{ contains(github.event.head_commit.message, 'chore: add npm lockfiles') }}
+        run: echo "Lockfiles were just committed; nothing to bootstrap."
+
       - name: Setup Node
+        if: ${{ !contains(github.event.head_commit.message, 'chore: add npm lockfiles') }}
         uses: actions/setup-node@v4
         with:
           node-version: 24
 
       - name: Generate web lockfile
+        if: ${{ !contains(github.event.head_commit.message, 'chore: add npm lockfiles') }}
         run: npm install --package-lock-only --ignore-scripts --no-audit --no-fund
 
       - name: Generate mobile lockfile
+        if: ${{ !contains(github.event.head_commit.message, 'chore: add npm lockfiles') }}
         working-directory: mobile
         run: npm install --package-lock-only --ignore-scripts --no-audit --no-fund
 
       - name: Commit lockfiles
+        if: ${{ !contains(github.event.head_commit.message, 'chore: add npm lockfiles') }}
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
