@@ -13,7 +13,7 @@ type Profile = { id: string; full_name: string | null };
 type SessionUser = { id: string; email?: string | null };
 type BoardRole = 'owner' | 'admin' | 'member' | 'viewer';
 type View = 'tasks' | 'calendar' | 'documents' | 'team';
-type AppProps = { selectedBoard?: string | null; onSelectedBoardChange?: (boardId: string) => void; openCardId?: string | null; onOpenCardHandled?: () => void; onNavigate?: (view: View | null) => void };
+type AppProps = { selectedBoard?: string | null; onSelectedBoardChange?: (boardId: string | null) => void; openCardId?: string | null; onOpenCardHandled?: () => void; onNavigate?: (view: View | null) => void };
 
 const url = process.env.EXPO_PUBLIC_SUPABASE_URL;
 const key = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
@@ -57,11 +57,13 @@ export default function App({ selectedBoard: controlledBoard, onSelectedBoardCha
   }, []);
 
   async function loadBoards() {
-    if (!supabase || !user) return;
+    if (!supabase || !user) return false;
     const { data, error } = await supabase.from('boards').select('id,name,description,owner_id').order('updated_at', { ascending: false });
-    if (error) { setMessage(error.message); return; }
-    const next = (data ?? []) as Board[]; setBoards(next);
+    if (error) { setMessage(error.message); return false; }
+    const next = (data ?? []) as Board[];
+    setBoards(next);
     setSelectedBoard(current => current && next.some(b => b.id === current) ? current : controlledBoard && next.some(b => b.id === controlledBoard) ? controlledBoard : next[0]?.id ?? null);
+    return true;
   }
   useEffect(() => { if (user) void loadBoards(); else { ++boardLoadSeq.current; setBoards([]); setSelectedBoard(null); setBoardRole(null); setLists([]); setCards([]); setProfiles([]); listIdsRef.current = new Set(); } }, [user]);
 
@@ -125,15 +127,9 @@ export default function App({ selectedBoard: controlledBoard, onSelectedBoardCha
         let saved = data as Card;
         if (cardListId !== editingCard.list_id) {
           const moved = await supabase.rpc('move_card', { p_card_id: editingCard.id, p_target_list_id: cardListId, p_before_card_id: null });
-          if (moved.error || !moved.data) {
-            Alert.alert('Verschieben', moved.error?.message ?? 'Karte konnte nicht verschoben werden.');
-          } else {
-            saved = moved.data as Card;
-            succeeded = true;
-          }
-        } else {
-          succeeded = true;
-        }
+          if (moved.error || !moved.data) Alert.alert('Verschieben', moved.error?.message ?? 'Karte konnte nicht verschoben werden.');
+          else { saved = moved.data as Card; succeeded = true; }
+        } else succeeded = true;
         setCards(v => v.map(c => c.id === saved.id ? saved : c));
       }
     } else {
@@ -148,17 +144,17 @@ export default function App({ selectedBoard: controlledBoard, onSelectedBoardCha
     if (!supabase || !editingCard?.id || !canEdit) return;
     Alert.alert('Karte löschen', 'Diese Karte wirklich löschen?', [{ text: 'Abbrechen', style: 'cancel' }, { text: 'Löschen', style: 'destructive', onPress: async () => { const { error } = await supabase.from('cards').delete().eq('id', editingCard.id); if (error) Alert.alert('Karte löschen', error.message); else { setCards(v => v.filter(c => c.id !== editingCard.id)); setEditingCard(null); } } }]);
   }
-  async function addList() { if (!supabase || !activeBoard || !canEdit) return; Alert.prompt('Neue Liste', 'Name der Liste', async name => { if (!name?.trim()) return; const { error } = await supabase.from('lists').insert({ board_id: activeBoard.id, name: name.trim(), position: lists.filter(l => l.board_id === activeBoard.id).length }); if (error) Alert.alert('Liste', error.message); }); }
+  async function addList() { if (!supabase || !activeBoard || !canEdit) return; Alert.prompt('Neue Liste', 'Name der Liste', async name => { if (!name?.trim()) return; const { data, error } = await supabase.from('lists').insert({ board_id: activeBoard.id, name: name.trim(), position: lists.filter(l => l.board_id === activeBoard.id).length }).select('id,board_id,name,position').single(); if (error) Alert.alert('Liste', error.message); else if (data) setLists(v => [...v, data as List]); }); }
   function editList(list: List) {
-    if (!supabase || !canEdit) return; Alert.prompt('Liste umbenennen', 'Neuer Name', async name => { if (!name?.trim() || name.trim() === list.name) return; const { error } = await supabase.from('lists').update({ name: name.trim() }).eq('id', list.id); if (error) Alert.alert('Liste', error.message); });
+    if (!supabase || !canEdit) return; Alert.prompt('Liste umbenennen', 'Neuer Name', async name => { if (!name?.trim() || name.trim() === list.name) return; const { data, error } = await supabase.from('lists').update({ name: name.trim() }).eq('id', list.id).select('id,board_id,name,position').single(); if (error) Alert.alert('Liste', error.message); else if (data) setLists(v => v.map(l => l.id === list.id ? data as List : l)); });
   }
   function deleteList(list: List) {
-    if (!supabase || !canManage) return; Alert.alert('Liste löschen', `„${list.name}“ und die enthaltenen Aufgaben löschen?`, [{ text: 'Abbrechen', style: 'cancel' }, { text: 'Löschen', style: 'destructive', onPress: async () => { const { error } = await supabase.from('lists').delete().eq('id', list.id); if (error) Alert.alert('Liste', error.message); } }]);
+    if (!supabase || !canManage) return; Alert.alert('Liste löschen', `„${list.name}“ und die enthaltenen Aufgaben löschen?`, [{ text: 'Abbrechen', style: 'cancel' }, { text: 'Löschen', style: 'destructive', onPress: async () => { const { error } = await supabase.from('lists').delete().eq('id', list.id); if (error) Alert.alert('Liste', error.message); else { setLists(v => v.filter(l => l.id !== list.id)); setCards(v => v.filter(c => c.list_id !== list.id)); if (editingCard?.list_id === list.id) setEditingCard(null); } } }]);
   }
   function openBoardEditor() { if (!activeBoard || !canManage) return; setBoardName(activeBoard.name); setBoardDescription(activeBoard.description ?? ''); setShowBoardEditor(true); }
-  async function saveBoard() { if (!supabase || !activeBoard || !canManage || !boardName.trim()) return; setSavingBoard(true); const { data, error } = await supabase.from('boards').update({ name: boardName.trim(), description: boardDescription.trim() || null }).eq('id', activeBoard.id).select('*').single(); if (error) Alert.alert('Board', error.message); else if (data) setBoards(v => v.map(b => b.id === activeBoard.id ? data as Board : b)); setSavingBoard(false); setShowBoardEditor(false); }
-  function deleteBoard() { if (!supabase || !activeBoard || boardRole !== 'owner') return; Alert.alert('Board löschen', `„${activeBoard.name}“ wirklich löschen?`, [{ text: 'Abbrechen', style: 'cancel' }, { text: 'Löschen', style: 'destructive', onPress: async () => { const { error } = await supabase.from('boards').delete().eq('id', activeBoard.id); if (error) Alert.alert('Board', error.message); else { setShowBoardEditor(false); await loadBoards(); } } }]); }
-  async function createBoard() { if (!supabase || !user) return; Alert.prompt('Neues Board', 'Name des Boards', async name => { if (!name?.trim()) return; const { data, error } = await supabase.rpc('create_board_with_defaults', { p_name: name.trim(), p_description: null }); if (error || !data) return Alert.alert('Board', error?.message ?? 'Board konnte nicht erstellt werden.'); const created = data as Board; await loadBoards(); setSelectedBoard(created.id); onSelectedBoardChange?.(created.id); }); }
+  async function saveBoard() { if (!supabase || !activeBoard || !canManage || !boardName.trim()) return; setSavingBoard(true); const { data, error } = await supabase.from('boards').update({ name: boardName.trim(), description: boardDescription.trim() || null }).eq('id', activeBoard.id).select('*').single(); if (error) Alert.alert('Board', error.message); else if (data) setBoards(v => v.map(b => b.id === activeBoard.id ? data as Board : b)); setSavingBoard(false); if (!error) setShowBoardEditor(false); }
+  function deleteBoard() { if (!supabase || !activeBoard || boardRole !== 'owner') return; const deletedBoardId = activeBoard.id; Alert.alert('Board löschen', `„${activeBoard.name}“ wirklich löschen?`, [{ text: 'Abbrechen', style: 'cancel' }, { text: 'Löschen', style: 'destructive', onPress: async () => { const { error } = await supabase.from('boards').delete().eq('id', deletedBoardId); if (error) Alert.alert('Board', error.message); else { ++boardLoadSeq.current; setShowBoardEditor(false); setBoardRole(null); setLists([]); setCards([]); setProfiles([]); listIdsRef.current = new Set(); setBoards(v => v.filter(b => b.id !== deletedBoardId)); setSelectedBoard(null); onSelectedBoardChange?.(null); await loadBoards(); } } }]); }
+  async function createBoard() { if (!supabase || !user) return; Alert.prompt('Neues Board', 'Name des Boards', async name => { if (!name?.trim()) return; const { data, error } = await supabase.rpc('create_board_with_defaults', { p_name: name.trim(), p_description: null }); if (error || !data) return Alert.alert('Board', error?.message ?? 'Board konnte nicht erstellt werden.'); const created = data as Board; setBoards(v => [created, ...v.filter(b => b.id !== created.id)]); setSelectedBoard(created.id); onSelectedBoardChange?.(created.id); void loadBoards(); }); }
 
   const activeLists = useMemo(() => lists.filter(l => l.board_id === selectedBoard).sort((a,b) => a.position - b.position), [lists, selectedBoard]);
   const filteredCards = (listId: string) => cards.filter(c => c.list_id === listId && (!search.trim() || `${c.title} ${c.description ?? ''}`.toLowerCase().includes(search.trim().toLowerCase()))).sort((a,b) => a.position - b.position);
