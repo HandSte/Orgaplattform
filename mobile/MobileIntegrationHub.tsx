@@ -30,18 +30,16 @@ export default function MobileIntegrationHub({ supabase, userId, selectedBoard, 
   const refreshTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const listIdsRef = useRef<Set<string>>(new Set());
   const cardIdsRef = useRef<Set<string>>(new Set());
-  const selectedBoardRef = useRef<string | null>(selectedBoard);
-  const memberBoardRef = useRef<string | null>(selectedBoard ?? boardIds[0] ?? null);
-
-  useEffect(() => {
-    selectedBoardRef.current = selectedBoard;
-    memberBoardRef.current = selectedBoard ?? boardIds[0] ?? null;
-  }, [selectedBoard, boardIds]);
+  const profileIdsRef = useRef<Set<string>>(new Set());
 
   useEffect(() => {
     listIdsRef.current = new Set(lists.map(list => list.id));
     cardIdsRef.current = new Set(cards.map(card => card.id));
-  }, [lists, cards]);
+    profileIdsRef.current = new Set([
+      ...members.map(member => member.user_id),
+      ...cards.map(card => card.assignee_id).filter(Boolean) as string[],
+    ]);
+  }, [lists, cards, members]);
 
   async function loadData() {
     if (!boardIds.length || !userId) return;
@@ -84,6 +82,10 @@ export default function MobileIntegrationHub({ supabase, userId, selectedBoard, 
     if (requestId !== loadSeq.current) return;
     listIdsRef.current = new Set(nextLists.map(list => list.id));
     cardIdsRef.current = new Set(nextCards.map(card => card.id));
+    profileIdsRef.current = new Set([
+      ...nextMembers.map(member => member.user_id),
+      ...nextCards.map(card => card.assignee_id).filter(Boolean) as string[],
+    ]);
     setLists(nextLists); setCards(nextCards); setMembers(nextMembers); setProfiles(nextProfiles); setAttachments(nextAttachments); setLoading(false);
   }
 
@@ -98,19 +100,23 @@ export default function MobileIntegrationHub({ supabase, userId, selectedBoard, 
     const channel = supabase.channel(`mobile-hub-${selectedBoard ?? 'all'}`)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'lists', ...(selectedBoard ? { filter: `board_id=eq.${selectedBoard}` } : {}) }, scheduleRefresh)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'cards' }, payload => {
-        const row = (payload.eventType === 'DELETE' ? payload.old : payload.new) as Partial<Card>;
-        if (!row.list_id || !listIdsRef.current.has(row.list_id)) return;
+        const oldRow = payload.old as Partial<Card>;
+        const newRow = payload.new as Partial<Card>;
+        const relevantListIds = [oldRow.list_id, newRow.list_id].filter((id): id is string => Boolean(id));
+        if (!relevantListIds.some(id => listIdsRef.current.has(id))) return;
         scheduleRefresh();
       })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'card_attachments' }, payload => {
-        const row = (payload.eventType === 'DELETE' ? payload.old : payload.new) as Partial<Attachment>;
-        if (!row.card_id || !cardIdsRef.current.has(row.card_id)) return;
+        const oldRow = payload.old as Partial<Attachment>;
+        const newRow = payload.new as Partial<Attachment>;
+        const relevantCardIds = [oldRow.card_id, newRow.card_id].filter((id): id is string => Boolean(id));
+        if (!relevantCardIds.some(id => cardIdsRef.current.has(id))) return;
         scheduleRefresh();
       })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'board_members', ...(selectedBoard ? { filter: `board_id=eq.${selectedBoard}` } : {}) }, scheduleRefresh)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'profiles' }, payload => {
         const row = (payload.eventType === 'DELETE' ? payload.old : payload.new) as Partial<Profile>;
-        if (!row.id || (!members.some(member => member.user_id === row.id) && !cards.some(card => card.assignee_id === row.id))) return;
+        if (!row.id || !profileIdsRef.current.has(row.id)) return;
         scheduleRefresh();
       })
       .subscribe();
