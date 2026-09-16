@@ -1,0 +1,33 @@
+/* Shared fixes for every Essentia menu workspace */
+.boards-workspace-shell .topbar{display:flex;justify-content:space-between;align-items:center;gap:18px;min-width:0}
+.boards-workspace-shell .topbar .global-search-wrap{flex:1 1 420px;min-width:0;width:auto;max-width:660px}
+.boards-workspace-shell .topbar .top-actions{flex:0 0 auto;min-width:0;white-space:nowrap}
+.module-workspace-shell .module-header{max-width:1100px}
+.module-workspace-shell .module-grid{max-width:1400px}
+.module-workspace-shell .module-toolbar{flex-wrap:wrap;align-items:center}
+.module-workspace-shell .module-toolbar .module-search{min-width:min(260px,100%)}
+.module-workspace-shell .module-toolbar select{flex:0 0 auto}
+@media(max-width:1100px){
+  .boards-workspace-shell .topbar{flex-wrap:wrap}
+  .boards-workspace-shell .topbar .global-search-wrap{flex:1 1 100%;max-width:none}
+  .boards-workspace-shell .topbar .top-actions{margin-left:auto}
+}
+@media(max-width:800px){
+  .boards-workspace-shell .topbar{gap:10px}
+  .boards-workspace-shell .topbar .global-search-wrap{height:44px;flex-basis:100%}
+  .boards-workspace-shell .topbar .top-actions{width:100%;justify-content:flex-end;flex-wrap:wrap}
+  .module-workspace-shell .module-header{padding-top:22px}
+  .module-workspace-shell .module-toolbar{align-items:stretch}
+  .module-workspace-shell .module-toolbar .module-search{min-width:100%}
+  .module-workspace-shell .module-toolbar select,.module-workspace-shell .module-toolbar button{flex:1 1 auto}
+}
+@media(max-width:600px){
+  .boards-workspace-shell .profile-chip{display:none}
+  .boards-workspace-shell .topbar .top-actions{width:auto;margin-left:auto}
+  .module-workspace-shell .module-header h1{font-size:25px}
+  .module-workspace-shell .module-grid{gap:12px}
+  .module-workspace-shell .module-card{padding:16px}
+  .module-workspace-shell .task-row,.module-workspace-shell .document-row{align-items:flex-start;flex-wrap:wrap}
+  .module-workspace-shell .task-meta{width:100%;justify-content:flex-start}
+  .module-workspace-shell .calendar-grid{grid-template-columns:repeat(7,minmax(54px,1fr));overflow-x:auto}
+}
