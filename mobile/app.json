@@ -1,0 +1,18 @@
+{
+  "expo": {
+    "name": "Orgaplattform",
+    "slug": "orgaplattform",
+    "version": "0.1.0",
+    "orientation": "default",
+    "userInterfaceStyle": "light",
+    "newArchEnabled": true,
+    "android": {
+      "package": "de.handste.orgaplattform",
+      "permissions": []
+    },
+    "ios": {
+      "bundleIdentifier": "de.handste.orgaplattform",
+      "supportsTablet": true
+    }
+  }
+}
