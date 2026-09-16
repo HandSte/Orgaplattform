@@ -37,4 +37,6 @@ The web PWA remains available as a store-free fallback.
 
 ## Branding
 
-Essentia uses a temporary E app mark until the final logo is supplied and integrated.
+The mobile client is branded consistently as **Essentia**. Branding constants are centralized in `branding.ts`, and the integrated mobile shell shows the Essentia monogram and tagline. No public store listing or store distribution profile is configured.
+
+The current monogram is intentionally rendered in code so the identity is usable without committing binary logo assets. A final supplied logo can be integrated later without changing the app identity or build configuration.
