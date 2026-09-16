@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from 'next';
 import ListDragEnhancer from '@/components/ListDragEnhancer';
+import GlobalNavigation from '@/components/GlobalNavigation';
 import './globals.css';
 import './branding.css';
 import './boards/workspace-enhancements.css';
@@ -23,6 +24,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
       <body>
         {children}
         <ListDragEnhancer />
+        <GlobalNavigation />
         <script dangerouslySetInnerHTML={{ __html: `if ('serviceWorker' in navigator) { window.addEventListener('load', () => navigator.serviceWorker.register('/sw.js').catch(() => undefined)); }` }} />
       </body>
     </html>
