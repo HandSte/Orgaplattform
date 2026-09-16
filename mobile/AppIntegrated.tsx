@@ -21,7 +21,6 @@ export default function AppIntegrated() {
   const [view, setView] = useState<View | null>(null);
   const [loadingBoards, setLoadingBoards] = useState(false);
   const [boardError, setBoardError] = useState('');
-  const [boardRevision, setBoardRevision] = useState(0);
   const boardLoadSeq = useRef(0);
 
   useEffect(() => {
@@ -35,7 +34,7 @@ export default function AppIntegrated() {
   useEffect(() => {
     if (!supabase || !userId) {
       ++boardLoadSeq.current;
-      setBoards([]); setSelectedBoard(null); setOpenCardId(null); setView(null); setLoadingBoards(false); setBoardError(''); setBoardRevision(0);
+      setBoards([]); setSelectedBoard(null); setOpenCardId(null); setView(null); setLoadingBoards(false); setBoardError('');
       return;
     }
     let alive = true;
@@ -53,8 +52,6 @@ export default function AppIntegrated() {
     void loadBoards();
     const channel = supabase.channel(`mobile-integrated-data-${userId}`)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'boards' }, () => void loadBoards())
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'lists' }, () => setBoardRevision(v => v + 1))
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'cards' }, () => setBoardRevision(v => v + 1))
       .subscribe();
     return () => { alive = false; ++boardLoadSeq.current; void supabase.removeChannel(channel); };
   }, [userId]);
@@ -62,7 +59,7 @@ export default function AppIntegrated() {
   useEffect(() => { setOpenCardId(null); }, [selectedBoard]);
 
   return <View style={styles.root}>
-    <App key={`${selectedBoard ?? 'empty'}:${boardRevision}`} selectedBoard={selectedBoard} onSelectedBoardChange={setSelectedBoard} openCardId={openCardId} onOpenCardHandled={() => setOpenCardId(null)} onNavigate={setView} />
+    <App selectedBoard={selectedBoard} onSelectedBoardChange={setSelectedBoard} openCardId={openCardId} onOpenCardHandled={() => setOpenCardId(null)} onNavigate={setView} />
     {loadingBoards ? <View pointerEvents="none" style={styles.loading}><Text style={styles.loadingText}>Arbeitsbereiche werden synchronisiert …</Text></View> : null}
     {boardError ? <View pointerEvents="none" style={styles.error}><Text style={styles.errorText}>Board-Synchronisierung: {boardError}</Text></View> : null}
     {supabase && userId ? <View pointerEvents="box-none" style={styles.overlay}>
