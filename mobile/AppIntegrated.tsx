@@ -19,6 +19,7 @@ export default function AppIntegrated() {
   const [selectedBoard, setSelectedBoard] = useState<string | null>(null);
   const [openCardId, setOpenCardId] = useState<string | null>(null);
   const [view, setView] = useState<View | null>(null);
+  const [boardError, setBoardError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!supabase) return;
@@ -29,14 +30,33 @@ export default function AppIntegrated() {
   }, []);
 
   useEffect(() => {
-    if (!supabase || !userId) { setBoards([]); setSelectedBoard(null); setOpenCardId(null); setView(null); return; }
+    if (!supabase || !userId) {
+      setBoards([]);
+      setSelectedBoard(null);
+      setOpenCardId(null);
+      setView(null);
+      setBoardError(null);
+      return;
+    }
     let alive = true;
     const loadBoards = async () => {
-      const { data } = await supabase.from('boards').select('id,name').order('updated_at', { ascending: false });
+      const { data, error } = await supabase.from('boards').select('id,name').order('updated_at', { ascending: false });
       if (!alive) return;
+      if (error) {
+        setBoardError(error.message);
+        return;
+      }
+      setBoardError(null);
       const next = (data ?? []) as Board[];
       setBoards(next);
-      setSelectedBoard(current => current && next.some(board => board.id === current) ? current : next[0]?.id ?? null);
+      setSelectedBoard(current => {
+        const nextId = current && next.some(board => board.id === current) ? current : next[0]?.id ?? null;
+        if (nextId !== current) {
+          setOpenCardId(null);
+          setView(null);
+        }
+        return nextId;
+      });
     };
     void loadBoards();
     const channel = supabase.channel(`mobile-integrated-boards-${userId}`)
@@ -45,12 +65,32 @@ export default function AppIntegrated() {
     return () => { alive = false; void supabase.removeChannel(channel); };
   }, [userId]);
 
+  useEffect(() => {
+    if (!selectedBoard) {
+      setOpenCardId(null);
+      setView(null);
+    }
+  }, [selectedBoard]);
+
+  const changeBoard = (boardId: string) => {
+    if (boardId === selectedBoard) return;
+    setOpenCardId(null);
+    setView(null);
+    setSelectedBoard(boardId);
+  };
+
   return <View style={styles.root}>
-    <App selectedBoard={selectedBoard} onSelectedBoardChange={setSelectedBoard} openCardId={openCardId} onOpenCardHandled={() => setOpenCardId(null)} onNavigate={setView} />
+    <App selectedBoard={selectedBoard} onSelectedBoardChange={changeBoard} openCardId={openCardId} onOpenCardHandled={() => setOpenCardId(null)} onNavigate={setView} />
     {supabase && userId ? <View pointerEvents="box-none" style={styles.overlay}>
-      <MobileIntegrationHub supabase={supabase} userId={userId} selectedBoard={selectedBoard} boards={boards} onSelectedBoardChange={setSelectedBoard} onOpenCard={(card: Card) => setOpenCardId(card.id)} view={view} onViewChange={setView} />
+      <MobileIntegrationHub supabase={supabase} userId={userId} selectedBoard={selectedBoard} boards={boards} onSelectedBoardChange={changeBoard} onOpenCard={(card: Card) => setOpenCardId(card.id)} view={view} onViewChange={setView} />
     </View> : null}
+    {boardError ? <View pointerEvents="none" style={styles.errorBanner}><Text style={styles.errorText}>{boardError}</Text></View> : null}
   </View>;
 }
 
-const styles = StyleSheet.create({ root:{flex:1}, overlay:{position:'absolute',left:0,right:0,bottom:0,paddingBottom:8,backgroundColor:'rgba(248,250,252,0.96)',borderTopWidth:1,borderTopColor:'#e5e7eb'} });
+const styles = StyleSheet.create({
+  root:{flex:1},
+  overlay:{position:'absolute',left:0,right:0,bottom:0,paddingBottom:8,backgroundColor:'rgba(248,250,252,0.96)',borderTopWidth:1,borderTopColor:'#e5e7eb'},
+  errorBanner:{position:'absolute',left:12,right:12,top:52,paddingHorizontal:12,paddingVertical:9,borderRadius:10,backgroundColor:'#fee2e2',borderWidth:1,borderColor:'#fecaca'},
+  errorText:{fontSize:12,fontWeight:'600',color:'#991b1b'}
+});
