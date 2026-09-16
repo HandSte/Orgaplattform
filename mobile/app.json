@@ -1,19 +1,19 @@
 {
   "expo": {
-    "name": "Orgaplattform",
-    "slug": "orgaplattform",
+    "name": "Essentia",
+    "slug": "essentia",
     "version": "0.1.0",
     "orientation": "default",
-    "userInterfaceStyle": "light",
+    "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
-    "scheme": "orgaplattform",
+    "scheme": "essentia",
     "android": {
-      "package": "de.handste.orgaplattform",
+      "package": "de.essentia.app",
       "permissions": [],
       "versionCode": 1
     },
     "ios": {
-      "bundleIdentifier": "de.handste.orgaplattform",
+      "bundleIdentifier": "de.essentia.app",
       "supportsTablet": true,
       "buildNumber": "1"
     }
