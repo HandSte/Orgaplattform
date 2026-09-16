@@ -17,7 +17,10 @@ export default function GlobalNavigation() {
     const sync = () => {
       const path = window.location.pathname;
       document.querySelectorAll<HTMLElement>('.sidebar nav').forEach((nav) => {
-        nav.innerHTML = '';
+        const signature = `${path}|${items.map(([label, href]) => `${label}:${href}`).join('|')}`;
+        if (nav.dataset.globalNavigation === signature) return;
+        nav.dataset.globalNavigation = signature;
+        nav.replaceChildren();
         for (const [label, href, icon] of items) {
           const link = document.createElement('a');
           link.href = href;
