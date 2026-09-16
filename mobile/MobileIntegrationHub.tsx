@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Alert, Linking, Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SupabaseClient } from '@supabase/supabase-js';
 import CardCollaboration from './CardCollaboration';
@@ -26,17 +26,22 @@ export default function MobileIntegrationHub({ supabase, userId, selectedBoard, 
   const [members, setMembers] = useState<Member[]>([]);
   const [attachments, setAttachments] = useState<Attachment[]>([]);
   const boardIds = useMemo(() => selectedBoard ? [selectedBoard] : boards.map(b => b.id), [selectedBoard, boards]);
+  const loadSeq = useRef(0);
+  const refreshTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   async function loadData() {
     if (!boardIds.length || !userId) return;
+    const requestId = ++loadSeq.current;
     setLoading(true); setMessage('');
     const listResult = await supabase.from('lists').select('id,board_id,name').in('board_id', boardIds).order('position');
+    if (requestId !== loadSeq.current) return;
     if (listResult.error) { setMessage(listResult.error.message); setLoading(false); return; }
     const nextLists = (listResult.data ?? []) as List[];
     const listIds = nextLists.map(l => l.id);
     let nextCards: Card[] = [];
     if (listIds.length) {
       const cardResult = await supabase.from('cards').select('id,list_id,title,description,due_at,assignee_id,priority').in('list_id', listIds).order('position');
+      if (requestId !== loadSeq.current) return;
       if (cardResult.error) { setMessage(cardResult.error.message); setLoading(false); return; }
       nextCards = (cardResult.data ?? []) as Card[];
     }
@@ -44,12 +49,14 @@ export default function MobileIntegrationHub({ supabase, userId, selectedBoard, 
     let nextMembers: Member[] = [];
     if (memberBoard) {
       const memberResult = await supabase.from('board_members').select('user_id,role').eq('board_id', memberBoard);
+      if (requestId !== loadSeq.current) return;
       if (memberResult.error) { setMessage(memberResult.error.message); setLoading(false); return; }
       nextMembers = (memberResult.data ?? []) as Member[];
     }
     let nextAttachments: Attachment[] = [];
     if (view === 'documents' && nextCards.length) {
       const attachmentResult = await supabase.from('card_attachments').select('id,card_id,file_name,mime_type,size_bytes,storage_path,created_at').in('card_id', nextCards.map(c => c.id)).order('created_at', { ascending: false });
+      if (requestId !== loadSeq.current) return;
       if (attachmentResult.error) { setMessage(attachmentResult.error.message); setLoading(false); return; }
       nextAttachments = (attachmentResult.data ?? []) as Attachment[];
     }
@@ -57,23 +64,39 @@ export default function MobileIntegrationHub({ supabase, userId, selectedBoard, 
     let nextProfiles: Profile[] = [];
     if (profileIds.length) {
       const profileResult = await supabase.from('profiles').select('id,full_name').in('id', profileIds);
+      if (requestId !== loadSeq.current) return;
       if (!profileResult.error) nextProfiles = (profileResult.data ?? []) as Profile[];
     }
+    if (requestId !== loadSeq.current) return;
     setLists(nextLists); setCards(nextCards); setMembers(nextMembers); setProfiles(nextProfiles); setAttachments(nextAttachments); setLoading(false);
+  }
+
+  function scheduleRefresh() {
+    if (refreshTimer.current) clearTimeout(refreshTimer.current);
+    refreshTimer.current = setTimeout(() => { refreshTimer.current = null; void loadData(); }, 200);
   }
 
   useEffect(() => {
     if (!view) return;
     void loadData();
     const channel = supabase.channel(`mobile-hub-${selectedBoard ?? 'all'}`)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'lists' }, () => void loadData())
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'cards' }, () => void loadData())
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'card_attachments' }, () => void loadData())
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'board_members' }, () => void loadData())
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'profiles' }, () => void loadData())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'lists' }, scheduleRefresh)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'cards' }, scheduleRefresh)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'card_attachments' }, scheduleRefresh)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'board_members' }, scheduleRefresh)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'profiles' }, scheduleRefresh)
       .subscribe();
-    return () => { void supabase.removeChannel(channel); };
+    return () => {
+      ++loadSeq.current;
+      if (refreshTimer.current) { clearTimeout(refreshTimer.current); refreshTimer.current = null; }
+      void supabase.removeChannel(channel);
+    };
   }, [view, selectedBoard, userId, boardIds.join(','), supabase]);
+
+  useEffect(() => {
+    if (!selectedCard) return;
+    if (!cards.some(card => card.id === selectedCard.id)) setSelectedCard(null);
+  }, [cards, selectedCard]);
 
   const listMap = useMemo(() => new Map(lists.map(l => [l.id, l])), [lists]);
   const boardMap = useMemo(() => new Map(boards.map(b => [b.id, b])), [boards]);
@@ -150,5 +173,5 @@ function Tab({ label, active, onPress }: { label: string; active: boolean; onPre
 function Empty({ text }: { text: string }) { return <View style={styles.empty}><Text>{text}</Text></View>; }
 
 const styles = StyleSheet.create({
-  safe:{flex:1,backgroundColor:'#f8fafc'}, row:{flexDirection:'row',paddingHorizontal:12,paddingBottom:8,gap:6}, tab:{flex:1,minHeight:40,borderRadius:10,borderWidth:1,borderColor:'#d1d5db',alignItems:'center',justifyContent:'center',backgroundColor:'#fff'}, tabActive:{backgroundColor:'#111827',borderColor:'#111827'}, tabText:{fontSize:12}, tabTextActive:{fontSize:12,color:'#fff',fontWeight:'700'}, header:{padding:16,paddingTop:18,flexDirection:'row',justifyContent:'space-between',alignItems:'center',borderBottomWidth:1,borderBottomColor:'#e5e7eb'}, headerMain:{flex:1}, title:{fontSize:24,fontWeight:'800'}, close:{fontSize:14,fontWeight:'700'}, content:{padding:16,gap:10}, boardPicker:{paddingHorizontal:16,paddingVertical:10,gap:8}, boardChip:{backgroundColor:'#fff',borderWidth:1,borderColor:'#d1d5db',borderRadius:999,paddingHorizontal:13,paddingVertical:8}, boardChipActive:{backgroundColor:'#111827',borderColor:'#111827'}, boardChipText:{fontSize:12}, boardChipTextActive:{fontSize:12,color:'#fff',fontWeight:'700'}, center:{flex:1,justifyContent:'center',alignItems:'center'}, card:{backgroundColor:'#fff',borderWidth:1,borderColor:'#e5e7eb',borderRadius:14,padding:14}, cardTitle:{fontSize:16,fontWeight:'700'}, meta:{fontSize:12,color:'#6b7280',marginTop:4}, date:{fontSize:13,fontWeight:'700',marginBottom:4}, link:{fontSize:13,fontWeight:'700',marginTop:8}, openHint:{fontSize:12,fontWeight:'700',marginTop:10}, error:{color:'#b91c1c',padding:12,backgroundColor:'#fee2e2',borderRadius:10}, empty:{padding:24,alignItems:'center'}, delete:{fontSize:13,fontWeight:'700',marginTop:12}, detailBlock:{backgroundColor:'#fff',borderWidth:1,borderColor:'#e5e7eb',borderRadius:14,padding:14}, detailLabel:{fontSize:13,fontWeight:'800',marginBottom:6}, detailText:{fontSize:15,lineHeight:21}
+  safe:{flex:1,backgroundColor:'#f8fafc'}, row:{flexDirection:'row',paddingHorizontal:12,paddingBottom:8,gap:6}, tab:{flex:1,minHeight:40,borderRadius:10,borderWidth:1,borderColor:'#d1d5db',alignItems:'center',justifyContent:'center',backgroundColor:'#fff'}, tabActive:{backgroundColor:'#111827',borderColor:'#111827'}, tabText:{fontSize:12}, tabTextActive:{fontSize:12,color:'#fff',fontWeight:'700'}, header:{padding:16,paddingTop:18,flexDirection:'row',justifyContent:'space-between',alignItems:'center',borderBottomWidth:1,borderBottomColor:'#e5e7eb'}, headerMain:{flex:1}, title:{fontSize:24,fontWeight:'800'}, close:{fontSize:14,fontWeight:'700'}, content:{padding:16,gap:10}, boardPicker:{paddingHorizontal:16,paddingVertical:10,gap:8}, boardChip:{backgroundColor:'#fff',borderWidth:1,borderColor:'#d1d5db',borderRadius:999,paddingHorizontal:13,paddingVertical:8}, boardChipActive:{backgroundColor:'#111827',borderColor:'#111827'}, boardChipText:{fontSize:12}, boardChipTextActive:{fontSize:12,color:'#fff',fontWeight:'700'}, center:{flex:1,justifyContent:'center',alignItems:'center'}, card:{backgroundColor:'#fff',borderWidth:1,borderColor:'#e5e7eb',borderRadius:14,padding:14}, cardTitle:{fontSize:16,fontWeight:'700'}, meta:{fontSize:12,color:'#6b7280',marginTop:4}, date:{fontSize:13,fontWeight:'700',marginBottom:4}, link:{fontSize:13,fontWeight:'700',marginTop:8}, openHint:{fontSize:12,fontWeight:'700',marginTop:10}, error:{color:'#b91c1c',padding:12,backgroundColor:'#fee2e2',borderRadius:10}, empty:{padding:24,alignItems:'center'}, detailBlock:{backgroundColor:'#fff',borderRadius:12,padding:14,borderWidth:1,borderColor:'#e5e7eb'}, detailLabel:{fontSize:12,fontWeight:'700',textTransform:'uppercase'}, detailText:{fontSize:14,lineHeight:20,marginTop:6}, delete:{fontSize:13,fontWeight:'700',color:'#b91c1c',marginTop:10}
 });
