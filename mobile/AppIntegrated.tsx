@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import App from './App';
+import AppErrorBoundary from './AppErrorBoundary';
 import MobileIntegrationHub from './MobileIntegrationHub';
 import { BRANDING } from './branding';
 
@@ -59,7 +60,7 @@ export default function AppIntegrated() {
 
   useEffect(() => { setOpenCardId(null); }, [selectedBoard]);
 
-  return <View style={styles.root}>
+  return <AppErrorBoundary><View style={styles.root}>
     <View style={styles.brandHeader}>
       <View style={styles.brandMark}><Text style={styles.brandMarkText}>{BRANDING.monogram}</Text></View>
       <View style={styles.brandCopy}>
@@ -75,7 +76,7 @@ export default function AppIntegrated() {
     {supabase && userId && view ? <View pointerEvents="box-none" style={styles.overlay}>
       <MobileIntegrationHub supabase={supabase} userId={userId} selectedBoard={selectedBoard} boards={boards} onSelectedBoardChange={setSelectedBoard} onOpenCard={(card: Card) => setOpenCardId(card.id)} view={view} onViewChange={setView} />
     </View> : null}
-  </View>;
+  </View></AppErrorBoundary>;
 }
 
 const styles = StyleSheet.create({
