@@ -64,14 +64,18 @@ export default function AppIntegrated() {
     <View style={styles.brandHeader}>
       <View style={styles.brandMark}><Text style={styles.brandMarkText}>{BRANDING.monogram}</Text></View>
       <View style={styles.brandCopy}>
-        <Text style={styles.brandName}>{BRANDING.appName}</Text>
+        <View style={styles.brandNameRow}>
+          <Text style={styles.brandName}>{BRANDING.appName}</Text>
+          <View style={styles.versionPill}><Text style={styles.versionText}>v0.2.0</Text></View>
+        </View>
         <Text style={styles.brandTagline}>{BRANDING.tagline}</Text>
       </View>
+      <View style={styles.headerGlow} />
     </View>
     <View style={styles.appArea}>
       <App selectedBoard={selectedBoard} onSelectedBoardChange={setSelectedBoard} openCardId={openCardId} onOpenCardHandled={() => setOpenCardId(null)} onNavigate={setView} />
     </View>
-    {loadingBoards ? <View pointerEvents="none" style={styles.loading}><Text style={styles.loadingText}>Arbeitsbereiche werden synchronisiert …</Text></View> : null}
+    {loadingBoards ? <View pointerEvents="none" style={styles.loading}><View style={styles.statusDot} /><Text style={styles.loadingText}>Arbeitsbereiche werden synchronisiert …</Text></View> : null}
     {boardError ? <View pointerEvents="none" style={styles.error}><Text style={styles.errorText}>Board-Synchronisierung: {boardError}</Text></View> : null}
     {supabase && userId && view ? <View pointerEvents="box-none" style={styles.overlay}>
       <MobileIntegrationHub supabase={supabase} userId={userId} selectedBoard={selectedBoard} boards={boards} onSelectedBoardChange={setSelectedBoard} onOpenCard={(card: Card) => setOpenCardId(card.id)} view={view} onViewChange={setView} />
@@ -80,17 +84,22 @@ export default function AppIntegrated() {
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: '#f8fafc' },
+  root: { flex: 1, backgroundColor: '#f1f5f9' },
   appArea: { flex: 1 },
-  brandHeader: { height: 64, paddingHorizontal: 16, flexDirection: 'row', alignItems: 'center', backgroundColor: '#ffffff', borderBottomWidth: 1, borderBottomColor: '#e5e7eb' },
-  brandMark: { width: 38, height: 38, borderRadius: 11, backgroundColor: '#111827', alignItems: 'center', justifyContent: 'center' },
-  brandMarkText: { color: '#ffffff', fontSize: 20, fontWeight: '800' },
-  brandCopy: { marginLeft: 10 },
-  brandName: { color: '#111827', fontSize: 17, fontWeight: '800', letterSpacing: 0.2 },
-  brandTagline: { marginTop: 1, color: '#64748b', fontSize: 11, fontWeight: '500' },
+  brandHeader: { height: 76, paddingHorizontal: 16, flexDirection: 'row', alignItems: 'center', backgroundColor: '#0f172a', borderBottomWidth: 1, borderBottomColor: '#1e293b', overflow: 'hidden' },
+  brandMark: { width: 44, height: 44, borderRadius: 14, backgroundColor: '#ffffff', alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: '#e2e8f0' },
+  brandMarkText: { color: '#0f172a', fontSize: 22, fontWeight: '900' },
+  brandCopy: { marginLeft: 11, flex: 1 },
+  brandNameRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  brandName: { color: '#f8fafc', fontSize: 18, fontWeight: '900', letterSpacing: 0.2 },
+  versionPill: { paddingHorizontal: 7, paddingVertical: 3, borderRadius: 999, backgroundColor: '#1e293b', borderWidth: 1, borderColor: '#334155' },
+  versionText: { color: '#cbd5e1', fontSize: 9, fontWeight: '800' },
+  brandTagline: { marginTop: 3, color: '#94a3b8', fontSize: 11, fontWeight: '600' },
+  headerGlow: { position: 'absolute', width: 130, height: 130, borderRadius: 65, right: -48, top: -62, backgroundColor: '#1e293b', opacity: 0.8 },
   overlay: { position: 'absolute', left: 0, right: 0, top: 0, bottom: 0 },
-  loading: { position: 'absolute', top: 72, left: 16, right: 16, padding: 9, borderRadius: 10, backgroundColor: '#111827', alignItems: 'center' },
-  loadingText: { color: '#fff', fontSize: 12, fontWeight: '600' },
-  error: { position: 'absolute', top: 106, left: 16, right: 16, padding: 9, borderRadius: 10, backgroundColor: '#fef2f2', borderWidth: 1, borderColor: '#fecaca' },
-  errorText: { color: '#991b1b', fontSize: 12 },
+  loading: { position: 'absolute', top: 86, left: 16, right: 16, paddingHorizontal: 12, paddingVertical: 10, borderRadius: 14, backgroundColor: '#0f172a', alignItems: 'center', flexDirection: 'row', justifyContent: 'center', gap: 8, shadowColor: '#000000', shadowOpacity: 0.12, shadowRadius: 10, shadowOffset: { width: 0, height: 4 }, elevation: 4 },
+  statusDot: { width: 7, height: 7, borderRadius: 4, backgroundColor: '#94a3b8' },
+  loadingText: { color: '#f8fafc', fontSize: 12, fontWeight: '700' },
+  error: { position: 'absolute', top: 86, left: 16, right: 16, padding: 11, borderRadius: 14, backgroundColor: '#fff1f2', borderWidth: 1, borderColor: '#fecdd3' },
+  errorText: { color: '#9f1239', fontSize: 12, fontWeight: '600' },
 });
