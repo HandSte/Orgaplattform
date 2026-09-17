@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
+import BoardCardChecklist from '@/components/BoardCardChecklist';
 import CardModal from '@/components/CardModal';
 import './boards.css';
 import '../workspace.css';
@@ -472,22 +473,29 @@ export default function BoardsPage() {
                       )}
                     </header>
                     <div className="kanban-cards">
-                      {listCards.map((card) => (
-                        <button
-                          className={`kanban-card ${draggingCardId === card.id ? 'dragging' : ''}`}
-                          key={card.id}
-                          draggable={canEdit}
-                          onDragStart={(event) => { if (!canEdit) return; setDraggingCardId(card.id); event.dataTransfer.setData('text/card-id', card.id); event.dataTransfer.effectAllowed = 'move'; }}
-                          onDragEnd={() => setDraggingCardId(null)}
-                          onDragOver={(event) => { if (canEdit && draggingCardId && draggingCardId !== card.id) { event.preventDefault(); event.stopPropagation(); } }}
-                          onDrop={(event) => { event.preventDefault(); event.stopPropagation(); const id = event.dataTransfer.getData('text/card-id') || draggingCardId; if (id && id !== card.id) void moveCard(id, list.id, card.id); }}
-                          onClick={() => setSelectedCard(card)}
-                        >
-                          <strong>{card.title}</strong>
-                          {card.description && <span>{card.description}</span>}
-                          <small>{card.priority === 'urgent' ? 'Dringend' : card.priority === 'high' ? 'Hoch' : card.priority === 'low' ? 'Niedrig' : ''}{card.due_at ? ` · Fällig ${new Date(card.due_at).toLocaleDateString('de-DE')}` : ''}</small>
-                        </button>
-                      ))}
+                      {listCards.map((card) => {
+                        const isTodoCard = card.title.trim().toLowerCase() === 'to-do-liste';
+                        return (
+                          <article
+                            className={`kanban-card ${isTodoCard ? 'kanban-card-todo' : ''} ${draggingCardId === card.id ? 'dragging' : ''}`}
+                            key={card.id}
+                            draggable={canEdit}
+                            onDragStart={(event) => { if (!canEdit) return; setDraggingCardId(card.id); event.dataTransfer.setData('text/card-id', card.id); event.dataTransfer.effectAllowed = 'move'; }}
+                            onDragEnd={() => setDraggingCardId(null)}
+                            onDragOver={(event) => { if (canEdit && draggingCardId && draggingCardId !== card.id) { event.preventDefault(); event.stopPropagation(); } }}
+                            onDrop={(event) => { event.preventDefault(); event.stopPropagation(); const id = event.dataTransfer.getData('text/card-id') || draggingCardId; if (id && id !== card.id) void moveCard(id, list.id, card.id); }}
+                            onClick={() => { if (!isTodoCard) setSelectedCard(card); }}
+                            role={isTodoCard ? undefined : 'button'}
+                            tabIndex={isTodoCard ? undefined : 0}
+                            onKeyDown={(event) => { if (!isTodoCard && (event.key === 'Enter' || event.key === ' ')) { event.preventDefault(); setSelectedCard(card); } }}
+                          >
+                            <strong>{card.title}</strong>
+                            {!isTodoCard && card.description && <span>{card.description}</span>}
+                            {!isTodoCard && <small>{card.priority === 'urgent' ? 'Dringend' : card.priority === 'high' ? 'Hoch' : card.priority === 'low' ? 'Niedrig' : ''}{card.due_at ? ` · Fällig ${new Date(card.due_at).toLocaleDateString('de-DE')}` : ''}</small>}
+                            {isTodoCard && <BoardCardChecklist cardId={card.id} canEdit={canEdit} />}
+                          </article>
+                        );
+                      })}
                     </div>
                     {canEdit && <button className="add-card-link" onClick={() => void addCard(list.id)}>＋ Aufgabe hinzufügen</button>}
                   </article>
