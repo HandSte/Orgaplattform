@@ -1,37 +1,44 @@
 import type { ExpoConfig } from 'expo/config';
 
-export default ({ config }: { config: ExpoConfig }): ExpoConfig => ({
-  ...config,
-  name: 'Essentia',
-  slug: 'essentia',
-  version: '0.2.0',
-  orientation: 'default',
-  userInterfaceStyle: 'automatic',
-  backgroundColor: '#f1f5f9',
-  primaryColor: '#0f172a',
-  scheme: 'essentia',
-  splash: {
-    ...(config.splash ?? {}),
-    backgroundColor: '#0f172a',
-    resizeMode: 'contain',
-  },
-  ios: {
-    ...(config.ios ?? {}),
-    supportsTablet: true,
-    bundleIdentifier: 'de.essentia.app',
-    buildNumber: '2',
-  },
-  android: {
-    ...(config.android ?? {}),
-    package: 'de.essentia.app',
-    versionCode: 2,
-    adaptiveIcon: {
-      ...(config.android?.adaptiveIcon ?? {}),
+type SplashConfig = { backgroundColor: string; resizeMode: 'contain' | 'cover' };
+
+type ExtendedExpoConfig = ExpoConfig & { splash?: SplashConfig };
+
+export default ({ config }: { config: ExpoConfig }): ExpoConfig => {
+  const base = config as ExtendedExpoConfig;
+  return {
+    ...config,
+    name: 'Essentia',
+    slug: 'essentia',
+    version: '0.2.0',
+    orientation: 'default',
+    userInterfaceStyle: 'automatic',
+    backgroundColor: '#f1f5f9',
+    primaryColor: '#0f172a',
+    scheme: 'essentia',
+    splash: {
+      ...(base.splash ?? {}),
       backgroundColor: '#0f172a',
+      resizeMode: 'contain',
     },
-  },
-  web: {
-    ...(config.web ?? {}),
-    bundler: 'metro',
-  },
-});
+    ios: {
+      ...(config.ios ?? {}),
+      supportsTablet: true,
+      bundleIdentifier: 'de.essentia.app',
+      buildNumber: '2',
+    },
+    android: {
+      ...(config.android ?? {}),
+      package: 'de.essentia.app',
+      versionCode: 2,
+      adaptiveIcon: {
+        ...(config.android?.adaptiveIcon ?? {}),
+        backgroundColor: '#0f172a',
+      },
+    },
+    web: {
+      ...(config.web ?? {}),
+      bundler: 'metro',
+    },
+  } as ExpoConfig;
+};
