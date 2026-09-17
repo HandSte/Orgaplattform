@@ -4,7 +4,7 @@ export default ({ config }: { config: ExpoConfig }): ExpoConfig => ({
   ...config,
   name: 'Essentia',
   slug: 'essentia',
-  version: '0.1.0',
+  version: '0.2.0',
   orientation: 'default',
   userInterfaceStyle: 'automatic',
   scheme: 'essentia',
@@ -12,12 +12,12 @@ export default ({ config }: { config: ExpoConfig }): ExpoConfig => ({
     ...(config.ios ?? {}),
     supportsTablet: true,
     bundleIdentifier: 'de.essentia.app',
-    buildNumber: '1',
+    buildNumber: '2',
   },
   android: {
     ...(config.android ?? {}),
     package: 'de.essentia.app',
-    versionCode: 1,
+    versionCode: 2,
   },
   web: {
     ...(config.web ?? {}),
