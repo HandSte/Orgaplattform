@@ -72,7 +72,7 @@ export default function AppIntegrated() {
     </View>
     {loadingBoards ? <View pointerEvents="none" style={styles.loading}><Text style={styles.loadingText}>Arbeitsbereiche werden synchronisiert …</Text></View> : null}
     {boardError ? <View pointerEvents="none" style={styles.error}><Text style={styles.errorText}>Board-Synchronisierung: {boardError}</Text></View> : null}
-    {supabase && userId ? <View pointerEvents="box-none" style={styles.overlay}>
+    {supabase && userId && view ? <View pointerEvents="box-none" style={styles.overlay}>
       <MobileIntegrationHub supabase={supabase} userId={userId} selectedBoard={selectedBoard} boards={boards} onSelectedBoardChange={setSelectedBoard} onOpenCard={(card: Card) => setOpenCardId(card.id)} view={view} onViewChange={setView} />
     </View> : null}
   </View>;
@@ -87,7 +87,7 @@ const styles = StyleSheet.create({
   brandCopy: { marginLeft: 10 },
   brandName: { color: '#111827', fontSize: 17, fontWeight: '800', letterSpacing: 0.2 },
   brandTagline: { marginTop: 1, color: '#64748b', fontSize: 11, fontWeight: '500' },
-  overlay: { position: 'absolute', left: 0, right: 0, bottom: 0, paddingBottom: 8, backgroundColor: 'rgba(248,250,252,0.96)', borderTopWidth: 1, borderTopColor: '#e5e7eb' },
+  overlay: { position: 'absolute', left: 0, right: 0, top: 0, bottom: 0 },
   loading: { position: 'absolute', top: 72, left: 16, right: 16, padding: 9, borderRadius: 10, backgroundColor: '#111827', alignItems: 'center' },
   loadingText: { color: '#fff', fontSize: 12, fontWeight: '600' },
   error: { position: 'absolute', top: 106, left: 16, right: 16, padding: 9, borderRadius: 10, backgroundColor: '#fef2f2', borderWidth: 1, borderColor: '#fecaca' },
