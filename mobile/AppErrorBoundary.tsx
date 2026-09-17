@@ -28,7 +28,7 @@ export default class AppErrorBoundary extends Component<Props, State> {
         <View style={styles.card}>
           <View style={styles.mark}><Text style={styles.markText}>{BRANDING.monogram}</Text></View>
           <Text style={styles.title}>{BRANDING.appName}</Text>
-          <Text style={styles.message}>Essentia konnte diesen Bereich nicht laden.</Text>
+          <Text style={styles.message}>Dieser Bereich konnte gerade nicht geladen werden.</Text>
           <Pressable accessibilityRole="button" accessibilityLabel="Erneut versuchen" onPress={this.handleRetry} style={styles.button}>
             <Text style={styles.buttonText}>Erneut versuchen</Text>
           </Pressable>
@@ -39,12 +39,12 @@ export default class AppErrorBoundary extends Component<Props, State> {
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: '#f8fafc', alignItems: 'center', justifyContent: 'center', padding: 24 },
-  card: { width: '100%', maxWidth: 420, padding: 24, borderRadius: 18, backgroundColor: '#ffffff', borderWidth: 1, borderColor: '#e5e7eb', alignItems: 'center' },
-  mark: { width: 46, height: 46, borderRadius: 13, backgroundColor: '#111827', alignItems: 'center', justifyContent: 'center', marginBottom: 12 },
-  markText: { color: '#ffffff', fontSize: 22, fontWeight: '800' },
-  title: { color: '#111827', fontSize: 20, fontWeight: '800' },
-  message: { marginTop: 8, color: '#64748b', fontSize: 14, textAlign: 'center', lineHeight: 20 },
-  button: { marginTop: 18, minWidth: 150, paddingHorizontal: 18, paddingVertical: 11, borderRadius: 10, backgroundColor: '#111827', alignItems: 'center' },
-  buttonText: { color: '#ffffff', fontSize: 14, fontWeight: '700' },
+  root: { flex: 1, backgroundColor: '#f1f5f9', alignItems: 'center', justifyContent: 'center', padding: 24 },
+  card: { width: '100%', maxWidth: 420, padding: 26, borderRadius: 22, backgroundColor: '#ffffff', borderWidth: 1, borderColor: '#e2e8f0', alignItems: 'center', shadowColor: '#0f172a', shadowOpacity: 0.08, shadowRadius: 18, shadowOffset: { width: 0, height: 8 }, elevation: 4 },
+  mark: { width: 52, height: 52, borderRadius: 16, backgroundColor: '#0f172a', alignItems: 'center', justifyContent: 'center', marginBottom: 14 },
+  markText: { color: '#ffffff', fontSize: 24, fontWeight: '900' },
+  title: { color: '#0f172a', fontSize: 21, fontWeight: '900' },
+  message: { marginTop: 8, color: '#64748b', fontSize: 14, textAlign: 'center', lineHeight: 21 },
+  button: { marginTop: 20, minWidth: 170, paddingHorizontal: 18, paddingVertical: 12, borderRadius: 12, backgroundColor: '#0f172a', alignItems: 'center' },
+  buttonText: { color: '#ffffff', fontSize: 14, fontWeight: '800' },
 });
