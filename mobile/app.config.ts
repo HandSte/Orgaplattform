@@ -10,6 +10,11 @@ export default ({ config }: { config: ExpoConfig }): ExpoConfig => ({
   backgroundColor: '#f1f5f9',
   primaryColor: '#0f172a',
   scheme: 'essentia',
+  splash: {
+    ...(config.splash ?? {}),
+    backgroundColor: '#0f172a',
+    resizeMode: 'contain',
+  },
   ios: {
     ...(config.ios ?? {}),
     supportsTablet: true,
@@ -20,6 +25,10 @@ export default ({ config }: { config: ExpoConfig }): ExpoConfig => ({
     ...(config.android ?? {}),
     package: 'de.essentia.app',
     versionCode: 2,
+    adaptiveIcon: {
+      ...(config.android?.adaptiveIcon ?? {}),
+      backgroundColor: '#0f172a',
+    },
   },
   web: {
     ...(config.web ?? {}),
