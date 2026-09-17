@@ -1,5 +1,5 @@
 import * as DocumentPicker from 'expo-document-picker';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Alert, Linking, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
@@ -122,22 +122,64 @@ export default function CardCollaboration({ supabase, cardId, userId }: Props) {
     } }]);
   }
 
+  const completedCount = useMemo(() => items.filter(item => item.completed).length, [items]);
+  const progress = items.length ? completedCount / items.length : 0;
   const sizeLabel = (bytes: number | null) => bytes == null ? '' : bytes < 1024 * 1024 ? `${Math.max(1, Math.round(bytes / 1024))} KB` : `${(bytes / 1024 / 1024).toFixed(1)} MB`;
   const ready = roleResolved;
 
   return <View style={styles.container}>
-    <Text style={styles.sectionTitle}>Checkliste</Text>
-    {items.map(item => <View key={item.id} style={styles.itemRow}><Pressable style={[styles.checkbox, item.completed && styles.checkboxDone, !canEdit && styles.disabled]} onPress={() => void toggleItem(item)} disabled={!canEdit}><Text style={styles.check}>{item.completed ? '✓' : ''}</Text></Pressable><Text style={[styles.itemText, item.completed && styles.itemDone]}>{item.title}</Text>{canEdit ? <Pressable onPress={() => removeItem(item)}><Text style={styles.remove}>×</Text></Pressable> : null}</View>)}
-    {!ready ? <Text style={styles.muted}>Berechtigungen werden geprüft …</Text> : canEdit ? <View style={styles.addRow}><TextInput style={styles.smallInput} placeholder="Neuer Checklistenpunkt" value={newItem} onChangeText={setNewItem} onSubmitEditing={() => void addChecklistItem()} returnKeyType="done" /><Pressable style={styles.smallButton} onPress={() => void addChecklistItem()} disabled={busy}><Text style={styles.smallButtonText}>+</Text></Pressable></View> : <Text style={styles.muted}>Nur-Lesen-Modus</Text>}
+    <View style={styles.sectionHeader}>
+      <View style={styles.sectionCopy}><Text style={styles.sectionTitle}>Checkliste</Text><Text style={styles.sectionMeta}>{completedCount}/{items.length} erledigt</Text></View>
+      <View style={styles.progressTrack}><View style={[styles.progressFill, { width: `${progress * 100}%` }]} /></View>
+    </View>
+    {items.length ? items.map(item => <View key={item.id} style={styles.itemRow}><Pressable style={[styles.checkbox, item.completed && styles.checkboxDone, !canEdit && styles.disabled]} onPress={() => void toggleItem(item)} disabled={!canEdit} accessibilityRole="checkbox" accessibilityState={{ checked: item.completed }}><Text style={styles.check}>{item.completed ? '✓' : ''}</Text></Pressable><Text style={[styles.itemText, item.completed && styles.itemDone]}>{item.title}</Text>{canEdit ? <Pressable hitSlop={8} onPress={() => removeItem(item)}><Text style={styles.remove}>×</Text></Pressable> : null}</View>) : <View style={styles.emptyChecklist}><Text style={styles.emptyTitle}>Noch keine Punkte</Text><Text style={styles.muted}>Füge die ersten eigenen Checklistenpunkte hinzu.</Text></View>}
+    {!ready ? <Text style={styles.muted}>Berechtigungen werden geprüft …</Text> : canEdit ? <View style={styles.addRow}><TextInput style={styles.smallInput} placeholder="Neuer Checklistenpunkt" placeholderTextColor="#94a3b8" value={newItem} onChangeText={setNewItem} onSubmitEditing={() => void addChecklistItem()} returnKeyType="done" /><Pressable style={styles.smallButton} onPress={() => void addChecklistItem()} disabled={busy} accessibilityLabel="Checklistenpunkt hinzufügen"><Text style={styles.smallButtonText}>+</Text></Pressable></View> : <Text style={styles.muted}>Nur-Lesen-Modus</Text>}
 
     <Text style={[styles.sectionTitle, styles.attachTitle]}>Anhänge</Text>
-    {attachments.map(attachment => <View key={attachment.id} style={styles.attachment}><Pressable style={styles.attachmentMain} onPress={() => void openAttachment(attachment)}><Text style={styles.attachmentName} numberOfLines={1}>{attachment.file_name}</Text><Text style={styles.commentMeta}>{attachment.mime_type ?? 'Datei'} {sizeLabel(attachment.size_bytes) ? `· ${sizeLabel(attachment.size_bytes)}` : ''}</Text></Pressable>{canEdit ? <Pressable onPress={() => removeAttachment(attachment)}><Text style={styles.remove}>×</Text></Pressable> : null}</View>)}
+    {attachments.map(attachment => <View key={attachment.id} style={styles.attachment}><Pressable style={styles.attachmentMain} onPress={() => void openAttachment(attachment)}><Text style={styles.attachmentName} numberOfLines={1}>{attachment.file_name}</Text><Text style={styles.commentMeta}>{attachment.mime_type ?? 'Datei'} {sizeLabel(attachment.size_bytes) ? `· ${sizeLabel(attachment.size_bytes)}` : ''}</Text></Pressable>{canEdit ? <Pressable hitSlop={8} onPress={() => removeAttachment(attachment)}><Text style={styles.remove}>×</Text></Pressable> : null}</View>)}
     {ready && canEdit ? <Pressable style={styles.secondaryButton} onPress={() => void addAttachment()} disabled={busy}><Text style={styles.secondaryButtonText}>{busy ? 'Bitte warten …' : '＋ Anhang hinzufügen'}</Text></Pressable> : null}
 
     <Text style={[styles.sectionTitle, styles.commentsTitle]}>Kommentare</Text>
     {comments.map(comment => <View key={comment.id} style={styles.comment}><Text style={styles.commentMeta}>{comment.author_id === userId ? 'Du' : 'Teammitglied'} · {new Date(comment.created_at).toLocaleString('de-DE')}</Text><Text style={styles.commentBody}>{comment.body}</Text></View>)}
-    {ready && canEdit ? <View style={styles.commentComposer}><TextInput style={[styles.smallInput, styles.commentInput]} placeholder="Kommentar schreiben …" value={newComment} onChangeText={setNewComment} multiline /><Pressable style={styles.primary} onPress={() => void addComment()} disabled={busy}><Text style={styles.primaryText}>Senden</Text></Pressable></View> : null}
+    {ready && canEdit ? <View style={styles.commentComposer}><TextInput style={[styles.smallInput, styles.commentInput]} placeholder="Kommentar schreiben …" placeholderTextColor="#94a3b8" value={newComment} onChangeText={setNewComment} multiline /><Pressable style={styles.primary} onPress={() => void addComment()} disabled={busy}><Text style={styles.primaryText}>Senden</Text></Pressable></View> : null}
   </View>;
 }
 
-const styles = StyleSheet.create({ container:{marginTop:18,paddingTop:16,borderTopWidth:1,borderTopColor:'#e5e7eb'},sectionTitle:{fontSize:17,fontWeight:'800',marginBottom:10},attachTitle:{marginTop:20},commentsTitle:{marginTop:20},itemRow:{flexDirection:'row',alignItems:'center',paddingVertical:7},checkbox:{width:26,height:26,borderWidth:1,borderColor:'#9ca3af',borderRadius:7,alignItems:'center',justifyContent:'center',marginRight:10},checkboxDone:{backgroundColor:'#111827',borderColor:'#111827'},disabled:{opacity:0.65},check:{color:'#fff',fontWeight:'800'},itemText:{flex:1,fontSize:15},itemDone:{textDecorationLine:'line-through',color:'#6b7280'},remove:{fontSize:24,color:'#9ca3af',paddingHorizontal:8},addRow:{flexDirection:'row',alignItems:'center',gap:8},smallInput:{flex:1,backgroundColor:'#fff',borderWidth:1,borderColor:'#d1d5db',borderRadius:10,padding:11,fontSize:14},smallButton:{width:44,height:44,borderRadius:10,backgroundColor:'#111827',alignItems:'center',justifyContent:'center'},smallButtonText:{color:'#fff',fontSize:24},attachment:{backgroundColor:'#fff',borderRadius:10,padding:11,marginBottom:8,flexDirection:'row',alignItems:'center'},attachmentMain:{flex:1},attachmentName:{fontSize:14,fontWeight:'600'},secondaryButton:{borderWidth:1,borderColor:'#d1d5db',borderRadius:10,padding:12,alignItems:'center',backgroundColor:'#fff'},secondaryButtonText:{fontWeight:'700'},comment:{backgroundColor:'#fff',borderRadius:10,padding:11,marginBottom:8},commentMeta:{fontSize:11,color:'#6b7280',marginBottom:5},commentBody:{fontSize:14,lineHeight:20},commentComposer:{gap:8},commentInput:{minHeight:70,textAlignVertical:'top'},primary:{backgroundColor:'#111827',borderRadius:10,padding:12,alignItems:'center'},primaryText:{color:'#fff',fontWeight:'700'},muted:{color:'#6b7280',fontSize:13,marginBottom:8} });
+const styles = StyleSheet.create({
+  container: { marginTop: 18, paddingTop: 18, borderTopWidth: 1, borderTopColor: '#e2e8f0' },
+  sectionHeader: { marginBottom: 10 },
+  sectionCopy: { flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: 8 },
+  sectionTitle: { fontSize: 17, fontWeight: '800', color: '#0f172a' },
+  sectionMeta: { fontSize: 12, fontWeight: '700', color: '#64748b' },
+  progressTrack: { height: 7, borderRadius: 999, backgroundColor: '#e2e8f0', overflow: 'hidden' },
+  progressFill: { height: 7, borderRadius: 999, backgroundColor: '#0f172a' },
+  attachTitle: { marginTop: 22, marginBottom: 10 },
+  commentsTitle: { marginTop: 22, marginBottom: 10 },
+  itemRow: { minHeight: 44, flexDirection: 'row', alignItems: 'center', paddingVertical: 5 },
+  checkbox: { width: 28, height: 28, borderWidth: 1.5, borderColor: '#94a3b8', borderRadius: 8, alignItems: 'center', justifyContent: 'center', marginRight: 10, backgroundColor: '#fff' },
+  checkboxDone: { backgroundColor: '#0f172a', borderColor: '#0f172a' },
+  disabled: { opacity: 0.65 },
+  check: { color: '#fff', fontWeight: '900', fontSize: 15 },
+  itemText: { flex: 1, fontSize: 15, color: '#1e293b' },
+  itemDone: { textDecorationLine: 'line-through', color: '#94a3b8' },
+  remove: { fontSize: 24, lineHeight: 28, color: '#94a3b8', paddingHorizontal: 8 },
+  emptyChecklist: { paddingVertical: 14, paddingHorizontal: 14, borderRadius: 12, backgroundColor: '#f8fafc', borderWidth: 1, borderColor: '#e2e8f0', marginBottom: 10 },
+  emptyTitle: { fontSize: 14, fontWeight: '800', color: '#334155', marginBottom: 3 },
+  muted: { color: '#64748b', fontSize: 13, marginBottom: 8 },
+  addRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  smallInput: { flex: 1, backgroundColor: '#fff', borderWidth: 1, borderColor: '#cbd5e1', borderRadius: 12, paddingHorizontal: 12, paddingVertical: 11, fontSize: 14, color: '#0f172a' },
+  smallButton: { width: 46, height: 46, borderRadius: 12, backgroundColor: '#0f172a', alignItems: 'center', justifyContent: 'center' },
+  smallButtonText: { color: '#fff', fontSize: 25, fontWeight: '400', marginTop: -2 },
+  attachment: { backgroundColor: '#fff', borderRadius: 12, padding: 12, marginBottom: 8, flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderColor: '#e2e8f0' },
+  attachmentMain: { flex: 1 },
+  attachmentName: { fontSize: 14, fontWeight: '700', color: '#1e293b' },
+  secondaryButton: { borderWidth: 1, borderColor: '#cbd5e1', borderRadius: 12, padding: 13, alignItems: 'center', backgroundColor: '#fff' },
+  secondaryButtonText: { fontWeight: '800', color: '#334155' },
+  comment: { backgroundColor: '#fff', borderRadius: 12, padding: 12, marginBottom: 8, borderWidth: 1, borderColor: '#e2e8f0' },
+  commentMeta: { fontSize: 11, color: '#64748b', marginBottom: 5 },
+  commentBody: { fontSize: 14, lineHeight: 20, color: '#1e293b' },
+  commentComposer: { gap: 8 },
+  commentInput: { minHeight: 70, textAlignVertical: 'top' },
+  primary: { backgroundColor: '#0f172a', borderRadius: 12, padding: 13, alignItems: 'center' },
+  primaryText: { color: '#fff', fontWeight: '800' },
+});
