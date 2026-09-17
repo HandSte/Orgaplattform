@@ -7,6 +7,8 @@ export default ({ config }: { config: ExpoConfig }): ExpoConfig => ({
   version: '0.2.0',
   orientation: 'default',
   userInterfaceStyle: 'automatic',
+  backgroundColor: '#f1f5f9',
+  primaryColor: '#0f172a',
   scheme: 'essentia',
   ios: {
     ...(config.ios ?? {}),
