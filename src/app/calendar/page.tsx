@@ -139,11 +139,10 @@ export default function CalendarPage() {
       ends_at: endsAt?.toISOString() ?? null,
       all_day: allDay,
       board_id: boardId || null,
-      created_by: userId,
     };
     const result = editing
       ? await supabase.from('calendar_events').update(payload).eq('id', editing.id).select().single()
-      : await supabase.from('calendar_events').insert(payload).select().single();
+      : await supabase.from('calendar_events').insert({ ...payload, created_by: userId }).select().single();
     if (result.error || !result.data) {
       setNotice(result.error?.message ?? 'Termin konnte nicht gespeichert werden.');
       setSaving(false);
