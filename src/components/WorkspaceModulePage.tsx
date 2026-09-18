@@ -17,7 +17,12 @@ export default function WorkspaceModulePage({ title, eyebrow, active, descriptio
     const onKey = (event: KeyboardEvent) => { if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k') { event.preventDefault(); inputRef.current?.focus(); } };
     window.addEventListener('keydown', onKey); return () => window.removeEventListener('keydown', onKey);
   }, []);
-  function openBoard(id: string) { setSelectedBoardId(id); window.location.href = `/?board=${encodeURIComponent(id)}`; }
+  function openBoard(id: string) {
+    setSelectedBoardId(id);
+    const url = new URL(window.location.href);
+    url.searchParams.set('board', id);
+    window.location.href = `${url.pathname}${url.search}${url.hash}`;
+  }
   function submitSearch(event: React.FormEvent) { event.preventDefault(); const q = search.trim(); if (q) window.location.href = `/tasks?search=${encodeURIComponent(q)}`; }
   async function signOut() { const client = supabase; if (client) await client.auth.signOut(); window.location.href = '/auth'; }
   return <main className="shell boards-workspace-shell module-workspace-shell">
