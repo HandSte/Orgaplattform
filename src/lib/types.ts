@@ -9,6 +9,7 @@ export type Board = {
   owner_id: string;
   created_at: string;
   updated_at: string;
+  scheduled_date: string | null;
 };
 
 export type BoardMember = {
@@ -47,6 +48,19 @@ export type CardChecklistItem = {
   completed: boolean;
   position: number;
   created_by: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type CalendarEvent = {
+  id: string;
+  board_id: string | null;
+  title: string;
+  description: string | null;
+  starts_at: string;
+  ends_at: string | null;
+  all_day: boolean;
+  created_by: string;
   created_at: string;
   updated_at: string;
 };
