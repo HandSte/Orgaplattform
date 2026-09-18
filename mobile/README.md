@@ -4,9 +4,9 @@ Private mobile client for **Essentia**. Android and iOS use the same Supabase ba
 
 ## Current release
 
-- App version: **0.2.0**
-- Android versionCode: **2**
-- iOS buildNumber: **2**
+- App version: **0.3.0**
+- Android versionCode: **3**
+- iOS buildNumber: **3**
 - Release focus: synchronized board workspace, collaborative checklists, realtime collaboration, runtime recovery and refreshed Essentia visual shell.
 
 ## Current functionality
