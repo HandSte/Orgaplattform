@@ -1,6 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useEffect, useRef, useState } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import App from './App';
 import AppErrorBoundary from './AppErrorBoundary';
@@ -75,18 +75,34 @@ export default function AppIntegrated() {
     <View style={styles.appArea}>
       <App selectedBoard={selectedBoard} onSelectedBoardChange={setSelectedBoard} openCardId={openCardId} onOpenCardHandled={() => setOpenCardId(null)} onNavigate={setView} />
     </View>
+    <View style={styles.bottomNav}>
+      <NavButton label="Boards" icon="▦" active={view === null} onPress={() => setView(null)} />
+      <NavButton label="Aufgaben" icon="☑" active={view === 'tasks'} onPress={() => setView('tasks')} />
+      <NavButton label="Kalender" icon="□" active={view === 'calendar'} onPress={() => setView('calendar')} />
+      <NavButton label="Dokumente" icon="▤" active={view === 'documents'} onPress={() => setView('documents')} />
+      <NavButton label="Team" icon="♙" active={view === 'team'} onPress={() => setView('team')} />
+    </View>
     {loadingBoards ? <View pointerEvents="none" style={styles.loading}><View style={styles.statusDot} /><Text style={styles.loadingText}>Arbeitsbereiche werden synchronisiert …</Text></View> : null}
     {boardError ? <View pointerEvents="none" style={styles.error}><Text style={styles.errorText}>Board-Synchronisierung: {boardError}</Text></View> : null}
     {supabase && userId && view ? <View pointerEvents="box-none" style={styles.overlay}>
-      <MobileIntegrationHub supabase={supabase} userId={userId} selectedBoard={selectedBoard} boards={boards} onSelectedBoardChange={setSelectedBoard} onOpenCard={(card: Card) => setOpenCardId(card.id)} view={view} onViewChange={setView} />
+      <MobileIntegrationHub supabase={supabase} userId={userId} selectedBoard={selectedBoard} boards={boards} onSelectedBoardChange={setSelectedBoard} onOpenCard={(card: Card) => setOpenCardId(card.id)} view={view} onViewChange={setView} showTabs={false} />
     </View> : null}
   </View></AppErrorBoundary>;
 }
 
+function NavButton({ label, icon, active, onPress }: { label: string; icon: string; active: boolean; onPress: () => void }) { return <Pressable accessibilityRole="tab" accessibilityState={{ selected: active }} style={[styles.navButton, active && styles.navButtonActive]} onPress={onPress}><Text style={[styles.navIcon, active && styles.navIconActive]}>{icon}</Text><Text style={[styles.navLabel, active && styles.navLabelActive]} numberOfLines={1}>{label}</Text></Pressable>; }
+
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: '#f1f5f9' },
-  appArea: { flex: 1 },
-  brandHeader: { height: 76, paddingHorizontal: 16, flexDirection: 'row', alignItems: 'center', backgroundColor: '#0f172a', borderBottomWidth: 1, borderBottomColor: '#1e293b', overflow: 'hidden' },
+  appArea: { flex: 1, minHeight: 0 },
+  bottomNav: { height: 72, paddingHorizontal: 6, paddingTop: 6, paddingBottom: 7, flexDirection: 'row', alignItems: 'stretch', backgroundColor: '#ffffff', borderTopWidth: 1, borderTopColor: '#e2e8f0', elevation: 12, shadowColor: '#0f172a', shadowOpacity: 0.08, shadowRadius: 10, shadowOffset: { width: 0, height: -3 } },
+  navButton: { flex: 1, borderRadius: 12, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 2 },
+  navButtonActive: { backgroundColor: '#eef2f7' },
+  navIcon: { fontSize: 18, lineHeight: 22, color: '#64748b', fontWeight: '800' },
+  navIconActive: { color: '#0f172a' },
+  navLabel: { marginTop: 2, fontSize: 9, color: '#64748b', fontWeight: '700' },
+  navLabelActive: { color: '#0f172a' },
+  brandHeader: { height: 68, paddingHorizontal: 16, flexDirection: 'row', alignItems: 'center', backgroundColor: '#0f172a', borderBottomWidth: 1, borderBottomColor: '#1e293b', overflow: 'hidden' },
   brandMark: { width: 44, height: 44, borderRadius: 14, backgroundColor: '#ffffff', alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: '#e2e8f0' },
   brandMarkText: { color: '#0f172a', fontSize: 22, fontWeight: '900' },
   brandCopy: { marginLeft: 11, flex: 1 },
@@ -94,7 +110,7 @@ const styles = StyleSheet.create({
   brandName: { color: '#f8fafc', fontSize: 18, fontWeight: '900', letterSpacing: 0.2 },
   versionPill: { paddingHorizontal: 7, paddingVertical: 3, borderRadius: 999, backgroundColor: '#1e293b', borderWidth: 1, borderColor: '#334155' },
   versionText: { color: '#cbd5e1', fontSize: 9, fontWeight: '800' },
-  brandTagline: { marginTop: 3, color: '#94a3b8', fontSize: 11, fontWeight: '600' },
+  brandTagline: { marginTop: 2, color: '#94a3b8', fontSize: 10, fontWeight: '600' },
   headerGlow: { position: 'absolute', width: 130, height: 130, borderRadius: 65, right: -48, top: -62, backgroundColor: '#1e293b', opacity: 0.8 },
   overlay: { position: 'absolute', left: 0, right: 0, top: 0, bottom: 0 },
   loading: { position: 'absolute', top: 86, left: 16, right: 16, paddingHorizontal: 12, paddingVertical: 10, borderRadius: 14, backgroundColor: '#0f172a', alignItems: 'center', flexDirection: 'row', justifyContent: 'center', gap: 8, shadowColor: '#000000', shadowOpacity: 0.12, shadowRadius: 10, shadowOffset: { width: 0, height: 4 }, elevation: 4 },
