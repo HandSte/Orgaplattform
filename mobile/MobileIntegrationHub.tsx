@@ -9,7 +9,7 @@ type Card = { id: string; list_id: string; title: string; description?: string |
 type Profile = { id: string; full_name: string | null };
 type Member = { user_id: string; role: string };
 type Attachment = { id: string; card_id: string; file_name: string; mime_type?: string | null; size_bytes?: number | null; storage_path: string; created_at: string };
-type AppView = 'tasks' | 'calendar' | 'documents' | 'team' | 'settings';
+type AppView = 'boards' | 'tasks' | 'calendar' | 'documents' | 'team' | 'settings';
 
 type Props = {
   supabase: SupabaseClient;
@@ -35,6 +35,8 @@ export default function MobileIntegrationHub({ supabase, userId, selectedBoard, 
   const [profileName, setProfileName] = useState('');
   const [profileEmail, setProfileEmail] = useState('');
   const [profileBusy, setProfileBusy] = useState(false);
+  const [taskQuery, setTaskQuery] = useState('');
+  const [taskFilter, setTaskFilter] = useState<'all' | 'mine' | 'today' | 'overdue' | 'high'>('all');
   const loadSeq = useRef(0);
   const refreshTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const listIdsRef = useRef<Set<string>>(new Set());
@@ -46,7 +48,8 @@ export default function MobileIntegrationHub({ supabase, userId, selectedBoard, 
   const boardMap = useMemo(() => new Map(boards.map(b => [b.id, b])), [boards]);
   const profileMap = useMemo(() => new Map(profiles.map(p => [p.id, p])), [profiles]);
   const dueCards = useMemo(() => cards.filter(c => c.due_at).sort((a, b) => new Date(a.due_at!).getTime() - new Date(b.due_at!).getTime()), [cards]);
-  const title = view === 'tasks' ? 'Aufgaben' : view === 'calendar' ? 'Kalender' : view === 'documents' ? 'Dokumente' : view === 'team' ? 'Team' : 'Einstellungen';
+  const visibleTasks = useMemo(() => { const now = new Date(); const start = new Date(now.getFullYear(), now.getMonth(), now.getDate()); const end = new Date(start); end.setDate(end.getDate() + 1); const q = taskQuery.trim().toLowerCase(); return cards.filter(card => { const listName = listMap.get(card.list_id)?.name ?? ''; const haystack = `${card.title} ${card.description ?? ''} ${listName}`.toLowerCase(); if (q && !haystack.includes(q)) return false; if (taskFilter === 'mine' && card.assignee_id !== userId) return false; if (taskFilter === 'high' && card.priority !== 'high' && card.priority !== 'urgent') return false; if (taskFilter === 'overdue') return !!card.due_at && new Date(card.due_at) < now; if (taskFilter === 'today') return !!card.due_at && new Date(card.due_at) >= start && new Date(card.due_at) < end; return true; }).sort((a,b) => new Date(a.due_at ?? '9999-12-31').getTime() - new Date(b.due_at ?? '9999-12-31').getTime()); }, [cards, listMap, taskFilter, taskQuery, userId]);
+  const title = view === 'boards' ? 'Meine Boards' : view === 'tasks' ? 'Aufgaben' : view === 'calendar' ? 'Kalender' : view === 'documents' ? 'Dokumente' : view === 'team' ? 'Team' : 'Einstellungen';
   const boardLabel = selectedBoard ? boardMap.get(selectedBoard)?.name ?? 'Board' : 'Alle Boards';
 
   useEffect(() => {
@@ -56,7 +59,7 @@ export default function MobileIntegrationHub({ supabase, userId, selectedBoard, 
   }, [lists, cards, members]);
 
   async function loadData() {
-    if (!boardIds.length || !userId || !view || view === 'settings') return;
+    if (!boardIds.length || !userId || !view || view === 'settings' || view === 'boards') return;
     const requestId = ++loadSeq.current;
     setLoading(true);
     setMessage('');
@@ -116,7 +119,7 @@ export default function MobileIntegrationHub({ supabase, userId, selectedBoard, 
   }
 
   useEffect(() => {
-    if (!view || view === 'settings') {
+    if (!view || view === 'settings' || view === 'boards') {
       if (view === 'settings') void loadProfile();
       return;
     }
@@ -186,12 +189,13 @@ export default function MobileIntegrationHub({ supabase, userId, selectedBoard, 
       <View style={styles.headerMain}><Text style={styles.title}>{title}</Text><Text style={styles.meta}>{boardLabel}</Text></View>
       <Pressable style={styles.closeButton} onPress={() => onViewChange?.(null)}><Text style={styles.close}>Schließen</Text></Pressable>
     </View>
-    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.boardPicker} nestedScrollEnabled keyboardShouldPersistTaps="handled">
+    {view !== 'boards' ? <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.boardPicker} nestedScrollEnabled keyboardShouldPersistTaps="handled">
       {boards.map(board => <Pressable key={board.id} onPress={() => onSelectedBoardChange?.(board.id)} style={[styles.boardChip, board.id === selectedBoard && styles.boardChipActive]}><Text style={board.id === selectedBoard ? styles.boardChipTextActive : styles.boardChipText}>{board.name}</Text></Pressable>)}
-    </ScrollView>
+    </ScrollView> : null}
     {loading ? <View style={styles.center}><Text>Wird geladen …</Text></View> : <ScrollView style={styles.mainScroll} contentContainerStyle={styles.content} nestedScrollEnabled keyboardShouldPersistTaps="handled">
       {message ? <Text style={styles.error}>{message}</Text> : null}
-      {view === 'tasks' && (cards.length ? cards.map(card => <Pressable key={card.id} style={styles.card} onPress={() => openTask(card)}><Text style={styles.cardTitle}>{card.title}</Text><Text style={styles.meta}>{listMap.get(card.list_id)?.name ?? 'Aufgabe'}{card.assignee_id && profileMap.get(card.assignee_id)?.full_name ? ` · ${profileMap.get(card.assignee_id)?.full_name}` : ''}</Text>{card.due_at ? <Text style={styles.meta}>Fällig: {new Date(card.due_at).toLocaleDateString('de-DE')}</Text> : null}<Text style={styles.openHint}>Details öffnen</Text></Pressable>) : <Empty text="Keine Aufgaben gefunden." />)}
+      {view === 'boards' && (boards.length ? <View style={styles.settingsStack}>{boards.map(board => <View key={board.id} style={[styles.card, board.id === selectedBoard && styles.boardCardActive]}><View style={styles.boardRow}><View style={styles.boardAvatar}><Text style={styles.boardAvatarText}>{board.name.slice(0,1).toUpperCase()}</Text></View><View style={styles.boardInfo}><Text style={styles.cardTitle}>{board.name}</Text><Text style={styles.meta}>{board.id === selectedBoard ? 'Aktuelles Board' : 'Arbeitsfläche'}</Text></View></View><Pressable style={board.id === selectedBoard ? styles.secondary : styles.primary} onPress={() => { onSelectedBoardChange?.(board.id); onViewChange?.(null); }}><Text style={board.id === selectedBoard ? styles.secondaryText : styles.primaryText}>{board.id === selectedBoard ? 'Board geöffnet' : 'Board öffnen'}</Text></Pressable></View>)}<Pressable style={styles.primary} onPress={() => onViewChange?.(null)}><Text style={styles.primaryText}>＋ Neues Board im Arbeitsbereich</Text></Pressable></View> : <Empty text="Noch keine Boards vorhanden." />)}
+      {view === 'tasks' && <View style={styles.taskModule}><View style={styles.taskToolbar}><TextInputShim value={taskQuery} onChangeText={setTaskQuery} placeholder="Aufgaben durchsuchen …"/><ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterRow}><Tab label="Alle" active={taskFilter==='all'} onPress={()=>setTaskFilter('all')}/><Tab label="Meine" active={taskFilter==='mine'} onPress={()=>setTaskFilter('mine')}/><Tab label="Heute" active={taskFilter==='today'} onPress={()=>setTaskFilter('today')}/><Tab label="Überfällig" active={taskFilter==='overdue'} onPress={()=>setTaskFilter('overdue')}/><Tab label="Hoch" active={taskFilter==='high'} onPress={()=>setTaskFilter('high')}/></ScrollView></View>{visibleTasks.length ? visibleTasks.map(card => <Pressable key={card.id} style={styles.card} onPress={() => openTask(card)}><Text style={styles.cardTitle}>{card.title}</Text><Text style={styles.meta}>{listMap.get(card.list_id)?.name ?? 'Aufgabe'}{card.assignee_id && profileMap.get(card.assignee_id)?.full_name ? ` · ${profileMap.get(card.assignee_id)?.full_name}` : ''}</Text>{card.due_at ? <Text style={styles.meta}>Fällig: {new Date(card.due_at).toLocaleDateString('de-DE')}</Text> : <Text style={styles.meta}>Kein Termin</Text>}<Text style={styles.openHint}>Details öffnen</Text></Pressable>) : <Empty text="Keine passenden Aufgaben gefunden." />}</View>}
       {view === 'calendar' && (dueCards.length ? dueCards.map(card => <Pressable key={card.id} style={styles.card} onPress={() => openTask(card)}><Text style={styles.date}>{new Date(card.due_at!).toLocaleDateString('de-DE', { weekday: 'short', day: '2-digit', month: '2-digit', year: 'numeric' })}</Text><Text style={styles.cardTitle}>{card.title}</Text><Text style={styles.meta}>{listMap.get(card.list_id)?.name ?? 'Aufgabe'}</Text><Text style={styles.openHint}>Details öffnen</Text></Pressable>) : <Empty text="Keine fälligen Aufgaben vorhanden." />)}
       {view === 'documents' && (attachments.length ? attachments.map(item => { const card = cards.find(c => c.id === item.card_id); const canDelete = members.some(m => m.user_id === userId && (m.role === 'owner' || m.role === 'admin')); return <View key={item.id} style={styles.card}><Pressable onPress={() => card ? openTask(card) : void openAttachment(item)}><Text style={styles.cardTitle}>{item.file_name}</Text><Text style={styles.meta}>{listMap.get(card?.list_id ?? '')?.name ?? 'Dokument'} · {card?.title ?? 'Aufgabe'}</Text></Pressable><Pressable onPress={() => void openAttachment(item)}><Text style={styles.link}>Datei öffnen</Text></Pressable>{canDelete ? <Pressable onPress={() => void deleteAttachment(item)}><Text style={styles.delete}>Löschen</Text></Pressable> : null}</View>; }) : <Empty text="Keine Dokumente im aktuellen Bereich." />)}
       {view === 'team' && (members.length ? members.map(member => <View key={member.user_id} style={styles.card}><Text style={styles.cardTitle}>{profileMap.get(member.user_id)?.full_name || 'Teammitglied'}</Text><Text style={styles.meta}>{member.role === 'viewer' ? 'Nur Lesen' : member.role}</Text></View>) : <Empty text="Keine Teammitglieder gefunden." />)}
