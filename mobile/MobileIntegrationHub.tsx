@@ -11,9 +11,9 @@ type Member = { user_id: string; role: string };
 type Attachment = { id: string; card_id: string; file_name: string; mime_type?: string | null; size_bytes?: number | null; storage_path: string; created_at: string };
 type AppView = 'tasks' | 'calendar' | 'documents' | 'team';
 
-type Props = { supabase: SupabaseClient; userId: string; selectedBoard: string | null; boards: Board[]; onSelectedBoardChange?: (boardId: string) => void; onOpenCard?: (card: Card) => void; view?: AppView | null; onViewChange?: (view: AppView | null) => void };
+type Props = { supabase: SupabaseClient; userId: string; selectedBoard: string | null; boards: Board[]; onSelectedBoardChange?: (boardId: string) => void; onOpenCard?: (card: Card) => void; view?: AppView | null; onViewChange?: (view: AppView | null) => void; showTabs?: boolean };
 
-export default function MobileIntegrationHub({ supabase, userId, selectedBoard, boards, onSelectedBoardChange, onOpenCard, view: controlledView, onViewChange }: Props) {
+export default function MobileIntegrationHub({ supabase, userId, selectedBoard, boards, onSelectedBoardChange, onOpenCard, view: controlledView, onViewChange, showTabs = true }: Props) {
   const [localView, setLocalView] = useState<AppView | null>(controlledView ?? null);
   const view = controlledView !== undefined ? controlledView : localView;
   const changeView = (next: AppView | null) => { setLocalView(next); onViewChange?.(next); };
@@ -168,12 +168,7 @@ export default function MobileIntegrationHub({ supabase, userId, selectedBoard, 
   const selectedAssignee = selectedCard?.assignee_id ? profileMap.get(selectedCard.assignee_id)?.full_name : null;
 
   return <>
-    <View style={styles.row}>
-      <Tab label="Aufgaben" active={view === 'tasks'} onPress={() => changeView('tasks')} />
-      <Tab label="Kalender" active={view === 'calendar'} onPress={() => changeView('calendar')} />
-      <Tab label="Dokumente" active={view === 'documents'} onPress={() => changeView('documents')} />
-      <Tab label="Team" active={view === 'team'} onPress={() => changeView('team')} />
-    </View>
+    {showTabs ? row : null}
     <Modal visible={!!view} animationType="slide" onRequestClose={() => changeView(null)}>
       <View style={styles.safe}>
         <View style={styles.header}><View style={styles.headerMain}><Text style={styles.title}>{title}</Text><Text style={styles.meta}>{boardLabel}</Text></View><Pressable onPress={() => changeView(null)}><Text style={styles.close}>Schließen</Text></Pressable></View>
