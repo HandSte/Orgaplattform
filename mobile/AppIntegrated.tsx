@@ -7,7 +7,7 @@ import AppErrorBoundary from './AppErrorBoundary';
 import MobileIntegrationHub from './MobileIntegrationHub';
 import { BRANDING } from './branding';
 
-type Board = { id: string; name: string };
+type Board = { id: string; name: string; description?: string | null; owner_id?: string; scheduled_date?: string | null };
 type Card = { id: string; list_id: string; title: string; description?: string | null; due_at?: string | null; assignee_id?: string | null; priority?: string | null };
 type AppView = 'overview' | 'boards' | 'tasks' | 'calendar' | 'documents' | 'team' | 'settings';
 
@@ -44,7 +44,7 @@ export default function AppIntegrated() {
     const loadBoards = async () => {
       const requestId = ++boardLoadSeq.current;
       setLoadingBoards(true); setBoardError('');
-      const { data, error } = await supabase.from('boards').select('id,name').order('updated_at', { ascending: false });
+      const { data, error } = await supabase.from('boards').select('id,name,description,owner_id,scheduled_date').order('updated_at', { ascending: false });
       if (!alive || requestId !== boardLoadSeq.current) return;
       if (error) { setBoardError(error.message); setLoadingBoards(false); return; }
       const next = (data ?? []) as Board[];
