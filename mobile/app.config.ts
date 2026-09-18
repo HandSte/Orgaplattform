@@ -10,7 +10,7 @@ export default ({ config }: { config: ExpoConfig }): ExpoConfig => {
     ...config,
     name: 'Essentia',
     slug: 'essentia',
-    version: '0.3.1',
+    version: '0.3.2',
     orientation: 'default',
     userInterfaceStyle: 'automatic',
     backgroundColor: '#f1f5f9',
@@ -25,12 +25,12 @@ export default ({ config }: { config: ExpoConfig }): ExpoConfig => {
       ...(config.ios ?? {}),
       supportsTablet: true,
       bundleIdentifier: 'de.essentia.app',
-      buildNumber: '4',
+      buildNumber: '5',
     },
     android: {
       ...(config.android ?? {}),
       package: 'de.essentia.app',
-      versionCode: 4,
+      versionCode: 5,
       adaptiveIcon: {
         ...(config.android?.adaptiveIcon ?? {}),
         backgroundColor: '#0f172a',
