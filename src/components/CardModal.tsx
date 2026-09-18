@@ -6,7 +6,8 @@ import { supabase } from '@/lib/supabase-browser';
 import type { Card, CardChecklistItem, CardPriority } from '@/lib/types';
 
 type Comment = { id: string; card_id: string; author_id: string; body: string; created_at: string };
-type BoardMemberRow = { user_id: string; role: string };\ntype Member = BoardMemberRow & { profile?: { full_name: string | null; avatar_url: string | null } | null };
+type BoardMemberRow = { user_id: string; role: string };
+type Member = BoardMemberRow & { profile?: { full_name: string | null; avatar_url: string | null } | null };
 type Attachment = { id: string; storage_path: string; file_name: string; mime_type: string | null; size_bytes: number | null; created_at: string };
 type ListOption = { id: string; name: string; position: number };
 type Props = { card: Card; onClose: () => void; onSaved: (card: Card) => void; onDeleted: (cardId: string) => void };
