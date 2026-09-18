@@ -75,7 +75,7 @@ export default function AppIntegrated() {
       <View style={styles.headerGlow} />
     <Pressable style={styles.menuHeaderButton} onPress={()=>setMenuOpen(true)}><Text style={styles.menuHeaderText}>Menü</Text></Pressable></View>
     <View style={styles.appArea}>
-      {view === 'overview' ? <App selectedBoard={selectedBoard} onSelectedBoardChange={setSelectedBoard} openCardId={openCardId} onOpenCardHandled={() => setOpenCardId(null)} onNavigate={setView} /> : null}
+      {view === 'overview' ? <App selectedBoard={selectedBoard} onSelectedBoardChange={setSelectedBoard} openCardId={openCardId} onOpenCardHandled={() => setOpenCardId(null)} /> : null}
     </View>
     <View style={styles.bottomNav}>
       <NavButton label="Boards" icon="▦" active={view === 'boards'} onPress={() => {setView('boards');setMenuOpen(false)}} />
