@@ -86,7 +86,7 @@ export default function AppIntegrated() {
     </View>
     {loadingBoards ? <View pointerEvents="none" style={styles.loading}><View style={styles.statusDot} /><Text style={styles.loadingText}>Arbeitsbereiche werden synchronisiert …</Text></View> : null}
     {boardError ? <View pointerEvents="none" style={styles.error}><Text style={styles.errorText}>Board-Synchronisierung: {boardError}</Text></View> : null}
-    {supabase && userId && view ? <View pointerEvents="box-none" style={styles.overlay}>
+    {supabase && userId ? <View pointerEvents="box-none" style={styles.overlay}>
       {menuOpen ? <View style={styles.menuLayer}>
         <Pressable style={styles.menuBackdrop} onPress={()=>setMenuOpen(false)} />
         <View style={styles.drawer}>
@@ -103,7 +103,7 @@ export default function AppIntegrated() {
           </ScrollView>
         </View>
       </View> : null}
-      <MobileIntegrationHub supabase={supabase} userId={userId} selectedBoard={selectedBoard} boards={boards} onSelectedBoardChange={setSelectedBoard} onOpenCard={(card: Card) => setOpenCardId(card.id)} view={view} onViewChange={setView} showTabs={false} />
+      {view ? <MobileIntegrationHub supabase={supabase} userId={userId} selectedBoard={selectedBoard} boards={boards} onSelectedBoardChange={setSelectedBoard} onOpenCard={(card: Card) => setOpenCardId(card.id)} view={view} onViewChange={setView} showTabs={false} /> : null}
     </View> : null}
   </View></AppErrorBoundary>;
 }
