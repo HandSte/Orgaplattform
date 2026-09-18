@@ -21,7 +21,10 @@ Private mobile client for **Essentia**. Android and iOS use the same Supabase ba
 - Card comments
 - Private card attachments with signed access URLs
 - Realtime notification center
-- Scrollable mobile workspace for long boards and nested board controls
+- Smartphone-first navigation with fixed bottom navigation
+- Long-press task moving between board columns with a dedicated move mode
+- Touch-friendly horizontal board scrolling and vertical workspace scrolling
+- Persistent active board selection across app restarts
 - Branded Essentia shell with release/version indicator
 
 ## Development
@@ -52,6 +55,6 @@ The web PWA remains available as a store-free fallback.
 
 ## Branding
 
-The mobile client is branded consistently as **Essentia**. Branding constants are centralized in `branding.ts`, and the integrated mobile shell shows the Essentia monogram, tagline and current release version. The 0.2.0 shell uses a darker branded header, stronger hierarchy and clearer synchronization/error states while keeping the workspace light and readable.
+The mobile client is branded consistently as **Essentia**. Branding constants are centralized in `branding.ts`, and the integrated mobile shell shows the Essentia monogram, tagline and current release version. The 0.3.0 shell uses smartphone-first navigation, a fixed bottom navigation bar, touch-safe board scrolling, explicit task move mode and clearer synchronization/error states while keeping the workspace light and readable.
 
 No public store listing or store distribution profile is configured.
