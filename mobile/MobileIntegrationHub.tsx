@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Alert, Linking, Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Alert, Linking, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SupabaseClient } from '@supabase/supabase-js';
 import CardCollaboration from './CardCollaboration';
 
@@ -9,14 +9,21 @@ type Card = { id: string; list_id: string; title: string; description?: string |
 type Profile = { id: string; full_name: string | null };
 type Member = { user_id: string; role: string };
 type Attachment = { id: string; card_id: string; file_name: string; mime_type?: string | null; size_bytes?: number | null; storage_path: string; created_at: string };
-type AppView = 'tasks' | 'calendar' | 'documents' | 'team';
+type AppView = 'tasks' | 'calendar' | 'documents' | 'team' | 'settings';
 
-type Props = { supabase: SupabaseClient; userId: string; selectedBoard: string | null; boards: Board[]; onSelectedBoardChange?: (boardId: string) => void; onOpenCard?: (card: Card) => void; view?: AppView | null; onViewChange?: (view: AppView | null) => void; showTabs?: boolean };
+type Props = {
+  supabase: SupabaseClient;
+  userId: string;
+  selectedBoard: string | null;
+  boards: Board[];
+  onSelectedBoardChange?: (boardId: string) => void;
+  onOpenCard?: (card: Card) => void;
+  view?: AppView | null;
+  onViewChange?: (view: AppView | null) => void;
+  showTabs?: boolean;
+};
 
-export default function MobileIntegrationHub({ supabase, userId, selectedBoard, boards, onSelectedBoardChange, onOpenCard, view: controlledView, onViewChange, showTabs = true }: Props) {
-  const [localView, setLocalView] = useState<AppView | null>(controlledView ?? null);
-  const view = controlledView !== undefined ? controlledView : localView;
-  const changeView = (next: AppView | null) => { setLocalView(next); onViewChange?.(next); };
+export default function MobileIntegrationHub({ supabase, userId, selectedBoard, boards, onSelectedBoardChange, onOpenCard, view, onViewChange, showTabs = true }: Props) {
   const [selectedCard, setSelectedCard] = useState<Card | null>(null);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState('');
@@ -25,26 +32,34 @@ export default function MobileIntegrationHub({ supabase, userId, selectedBoard, 
   const [profiles, setProfiles] = useState<Profile[]>([]);
   const [members, setMembers] = useState<Member[]>([]);
   const [attachments, setAttachments] = useState<Attachment[]>([]);
-  const boardIds = useMemo(() => selectedBoard ? [selectedBoard] : boards.map(b => b.id), [selectedBoard, boards]);
+  const [profileName, setProfileName] = useState('');
+  const [profileEmail, setProfileEmail] = useState('');
+  const [profileBusy, setProfileBusy] = useState(false);
   const loadSeq = useRef(0);
   const refreshTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const listIdsRef = useRef<Set<string>>(new Set());
   const cardIdsRef = useRef<Set<string>>(new Set());
   const profileIdsRef = useRef<Set<string>>(new Set());
 
+  const boardIds = useMemo(() => selectedBoard ? [selectedBoard] : boards.map(b => b.id), [selectedBoard, boards]);
+  const listMap = useMemo(() => new Map(lists.map(l => [l.id, l])), [lists]);
+  const boardMap = useMemo(() => new Map(boards.map(b => [b.id, b])), [boards]);
+  const profileMap = useMemo(() => new Map(profiles.map(p => [p.id, p])), [profiles]);
+  const dueCards = useMemo(() => cards.filter(c => c.due_at).sort((a, b) => new Date(a.due_at!).getTime() - new Date(b.due_at!).getTime()), [cards]);
+  const title = view === 'tasks' ? 'Aufgaben' : view === 'calendar' ? 'Kalender' : view === 'documents' ? 'Dokumente' : view === 'team' ? 'Team' : 'Einstellungen';
+  const boardLabel = selectedBoard ? boardMap.get(selectedBoard)?.name ?? 'Board' : 'Alle Boards';
+
   useEffect(() => {
     listIdsRef.current = new Set(lists.map(list => list.id));
     cardIdsRef.current = new Set(cards.map(card => card.id));
-    profileIdsRef.current = new Set([
-      ...members.map(member => member.user_id),
-      ...cards.map(card => card.assignee_id).filter(Boolean) as string[],
-    ]);
+    profileIdsRef.current = new Set([...members.map(member => member.user_id), ...cards.map(card => card.assignee_id).filter(Boolean) as string[]]);
   }, [lists, cards, members]);
 
   async function loadData() {
-    if (!boardIds.length || !userId) return;
+    if (!boardIds.length || !userId || !view || view === 'settings') return;
     const requestId = ++loadSeq.current;
-    setLoading(true); setMessage('');
+    setLoading(true);
+    setMessage('');
     const listResult = await supabase.from('lists').select('id,board_id,name').in('board_id', boardIds).order('position');
     if (requestId !== loadSeq.current) return;
     if (listResult.error) { setMessage(listResult.error.message); setLoading(false); return; }
@@ -57,10 +72,9 @@ export default function MobileIntegrationHub({ supabase, userId, selectedBoard, 
       if (cardResult.error) { setMessage(cardResult.error.message); setLoading(false); return; }
       nextCards = (cardResult.data ?? []) as Card[];
     }
-    const memberBoard = selectedBoard ?? boardIds[0];
     let nextMembers: Member[] = [];
-    if (memberBoard) {
-      const memberResult = await supabase.from('board_members').select('user_id,role').eq('board_id', memberBoard);
+    if (selectedBoard) {
+      const memberResult = await supabase.from('board_members').select('user_id,role').eq('board_id', selectedBoard);
       if (requestId !== loadSeq.current) return;
       if (memberResult.error) { setMessage(memberResult.error.message); setLoading(false); return; }
       nextMembers = (memberResult.data ?? []) as Member[];
@@ -79,14 +93,21 @@ export default function MobileIntegrationHub({ supabase, userId, selectedBoard, 
       if (requestId !== loadSeq.current) return;
       if (!profileResult.error) nextProfiles = (profileResult.data ?? []) as Profile[];
     }
-    if (requestId !== loadSeq.current) return;
-    listIdsRef.current = new Set(nextLists.map(list => list.id));
-    cardIdsRef.current = new Set(nextCards.map(card => card.id));
-    profileIdsRef.current = new Set([
-      ...nextMembers.map(member => member.user_id),
-      ...nextCards.map(card => card.assignee_id).filter(Boolean) as string[],
-    ]);
-    setLists(nextLists); setCards(nextCards); setMembers(nextMembers); setProfiles(nextProfiles); setAttachments(nextAttachments); setLoading(false);
+    setLists(nextLists);
+    setCards(nextCards);
+    setMembers(nextMembers);
+    setProfiles(nextProfiles);
+    setAttachments(nextAttachments);
+    setLoading(false);
+  }
+
+  async function loadProfile() {
+    const { data: session } = await supabase.auth.getSession();
+    const user = session.session?.user;
+    if (!user) return;
+    setProfileEmail(user.email ?? '');
+    const { data } = await supabase.from('profiles').select('full_name').eq('id', user.id).maybeSingle();
+    setProfileName(data?.full_name ?? '');
   }
 
   function scheduleRefresh() {
@@ -95,47 +116,31 @@ export default function MobileIntegrationHub({ supabase, userId, selectedBoard, 
   }
 
   useEffect(() => {
-    if (!view) return;
+    if (!view || view === 'settings') {
+      if (view === 'settings') void loadProfile();
+      return;
+    }
     void loadData();
-    const channel = supabase.channel(`mobile-hub-${selectedBoard ?? 'all'}`)
+    const channel = supabase.channel(`mobile-hub-${selectedBoard ?? 'all'}-${view}`)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'lists', ...(selectedBoard ? { filter: `board_id=eq.${selectedBoard}` } : {}) }, scheduleRefresh)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'cards' }, payload => {
         const oldRow = payload.old as Partial<Card>;
         const newRow = payload.new as Partial<Card>;
-        const relevantListIds = [oldRow.list_id, newRow.list_id].filter((id): id is string => Boolean(id));
-        if (!relevantListIds.some(id => listIdsRef.current.has(id))) return;
-        scheduleRefresh();
+        if ([oldRow.list_id, newRow.list_id].some(id => Boolean(id) && listIdsRef.current.has(id as string))) scheduleRefresh();
       })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'card_attachments' }, payload => {
         const oldRow = payload.old as Partial<Attachment>;
         const newRow = payload.new as Partial<Attachment>;
-        const relevantCardIds = [oldRow.card_id, newRow.card_id].filter((id): id is string => Boolean(id));
-        if (!relevantCardIds.some(id => cardIdsRef.current.has(id))) return;
-        scheduleRefresh();
+        if ([oldRow.card_id, newRow.card_id].some(id => Boolean(id) && cardIdsRef.current.has(id as string))) scheduleRefresh();
       })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'board_members', ...(selectedBoard ? { filter: `board_id=eq.${selectedBoard}` } : {}) }, scheduleRefresh)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'profiles' }, payload => {
-        const row = (payload.eventType === 'DELETE' ? payload.old : payload.new) as Partial<Profile>;
-        if (!row.id || !profileIdsRef.current.has(row.id)) return;
-        scheduleRefresh();
-      })
       .subscribe();
     return () => {
       ++loadSeq.current;
       if (refreshTimer.current) { clearTimeout(refreshTimer.current); refreshTimer.current = null; }
       void supabase.removeChannel(channel);
     };
-  }, [view, selectedBoard, userId, boardIds.join(','), supabase]);
-
-  useEffect(() => {
-    if (!selectedCard) return;
-    if (!cards.some(card => card.id === selectedCard.id)) setSelectedCard(null);
-  }, [cards, selectedCard]);
-
-  const listMap = useMemo(() => new Map(lists.map(l => [l.id, l])), [lists]);
-  const boardMap = useMemo(() => new Map(boards.map(b => [b.id, b])), [boards]);
-  const profileMap = useMemo(() => new Map(profiles.map(p => [p.id, p])), [profiles]);
-  const dueCards = useMemo(() => cards.filter(c => c.due_at).sort((a, b) => new Date(a.due_at!).getTime() - new Date(b.due_at!).getTime()), [cards]);
+  }, [view, selectedBoard, userId, boardIds.join(',')]);
 
   async function openAttachment(item: Attachment) {
     const { data, error } = await supabase.storage.from('card-attachments').createSignedUrl(item.storage_path, 60 * 10);
@@ -157,55 +162,71 @@ export default function MobileIntegrationHub({ supabase, userId, selectedBoard, 
     ]);
   }
 
+  async function saveProfile() {
+    setProfileBusy(true);
+    const { error } = await supabase.from('profiles').update({ full_name: profileName.trim() || null, updated_at: new Date().toISOString() }).eq('id', userId);
+    setProfileBusy(false);
+    if (error) setMessage(error.message); else setMessage('Profil gespeichert.');
+  }
+
   function openTask(card: Card) {
     if (onOpenCard) onOpenCard(card);
     else setSelectedCard(card);
   }
 
-  const title = view === 'tasks' ? 'Aufgaben' : view === 'calendar' ? 'Kalender' : view === 'documents' ? 'Dokumente' : 'Team';
-  const boardLabel = selectedBoard ? boardMap.get(selectedBoard)?.name : 'Alle Boards';
-  const selectedList = selectedCard ? listMap.get(selectedCard.list_id) : null;
-  const selectedAssignee = selectedCard?.assignee_id ? profileMap.get(selectedCard.assignee_id)?.full_name : null;
+  return <View style={styles.root}>
+    {showTabs ? <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.tabScroller}>
+      <Tab label="Aufgaben" active={view === 'tasks'} onPress={() => onViewChange?.('tasks')} />
+      <Tab label="Kalender" active={view === 'calendar'} onPress={() => onViewChange?.('calendar')} />
+      <Tab label="Dokumente" active={view === 'documents'} onPress={() => onViewChange?.('documents')} />
+      <Tab label="Team" active={view === 'team'} onPress={() => onViewChange?.('team')} />
+      <Tab label="Einstellungen" active={view === 'settings'} onPress={() => onViewChange?.('settings')} />
+    </ScrollView> : null}
+    <View style={styles.header}>
+      <View style={styles.headerMain}><Text style={styles.title}>{title}</Text><Text style={styles.meta}>{boardLabel}</Text></View>
+      <Pressable style={styles.closeButton} onPress={() => onViewChange?.(null)}><Text style={styles.close}>Schließen</Text></Pressable>
+    </View>
+    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.boardPicker} nestedScrollEnabled keyboardShouldPersistTaps="handled">
+      {boards.map(board => <Pressable key={board.id} onPress={() => onSelectedBoardChange?.(board.id)} style={[styles.boardChip, board.id === selectedBoard && styles.boardChipActive]}><Text style={board.id === selectedBoard ? styles.boardChipTextActive : styles.boardChipText}>{board.name}</Text></Pressable>)}
+    </ScrollView>
+    {loading ? <View style={styles.center}><Text>Wird geladen …</Text></View> : <ScrollView style={styles.mainScroll} contentContainerStyle={styles.content} nestedScrollEnabled keyboardShouldPersistTaps="handled">
+      {message ? <Text style={styles.error}>{message}</Text> : null}
+      {view === 'tasks' && (cards.length ? cards.map(card => <Pressable key={card.id} style={styles.card} onPress={() => openTask(card)}><Text style={styles.cardTitle}>{card.title}</Text><Text style={styles.meta}>{listMap.get(card.list_id)?.name ?? 'Aufgabe'}{card.assignee_id && profileMap.get(card.assignee_id)?.full_name ? ` · ${profileMap.get(card.assignee_id)?.full_name}` : ''}</Text>{card.due_at ? <Text style={styles.meta}>Fällig: {new Date(card.due_at).toLocaleDateString('de-DE')}</Text> : null}<Text style={styles.openHint}>Details öffnen</Text></Pressable>) : <Empty text="Keine Aufgaben gefunden." />)}
+      {view === 'calendar' && (dueCards.length ? dueCards.map(card => <Pressable key={card.id} style={styles.card} onPress={() => openTask(card)}><Text style={styles.date}>{new Date(card.due_at!).toLocaleDateString('de-DE', { weekday: 'short', day: '2-digit', month: '2-digit', year: 'numeric' })}</Text><Text style={styles.cardTitle}>{card.title}</Text><Text style={styles.meta}>{listMap.get(card.list_id)?.name ?? 'Aufgabe'}</Text><Text style={styles.openHint}>Details öffnen</Text></Pressable>) : <Empty text="Keine fälligen Aufgaben vorhanden." />)}
+      {view === 'documents' && (attachments.length ? attachments.map(item => { const card = cards.find(c => c.id === item.card_id); const canDelete = members.some(m => m.user_id === userId && (m.role === 'owner' || m.role === 'admin')); return <View key={item.id} style={styles.card}><Pressable onPress={() => card ? openTask(card) : void openAttachment(item)}><Text style={styles.cardTitle}>{item.file_name}</Text><Text style={styles.meta}>{listMap.get(card?.list_id ?? '')?.name ?? 'Dokument'} · {card?.title ?? 'Aufgabe'}</Text></Pressable><Pressable onPress={() => void openAttachment(item)}><Text style={styles.link}>Datei öffnen</Text></Pressable>{canDelete ? <Pressable onPress={() => void deleteAttachment(item)}><Text style={styles.delete}>Löschen</Text></Pressable> : null}</View>; }) : <Empty text="Keine Dokumente im aktuellen Bereich." />)}
+      {view === 'team' && (members.length ? members.map(member => <View key={member.user_id} style={styles.card}><Text style={styles.cardTitle}>{profileMap.get(member.user_id)?.full_name || 'Teammitglied'}</Text><Text style={styles.meta}>{member.role === 'viewer' ? 'Nur Lesen' : member.role}</Text></View>) : <Empty text="Keine Teammitglieder gefunden." />)}
+      {view === 'settings' ? <View style={styles.settingsStack}>
+        <View style={styles.card}><Text style={styles.sectionEyebrow}>MEIN PROFIL</Text><Text style={styles.sectionTitle}>Persönliche Daten</Text><Text style={styles.fieldLabel}>E-Mail</Text><TextInputShim value={profileEmail} readOnly/><Text style={styles.fieldLabel}>Name</Text><TextInputShim value={profileName} onChangeText={setProfileName} placeholder="Vor- und Nachname"/><Pressable style={styles.primary} onPress={() => void saveProfile()} disabled={profileBusy}><Text style={styles.primaryText}>{profileBusy ? 'Speichern …' : 'Profil speichern'}</Text></Pressable></View>
+        <View style={styles.card}><Text style={styles.sectionEyebrow}>BOARD</Text><Text style={styles.sectionTitle}>Board-Einstellungen</Text><Text style={styles.meta}>Board: {boardLabel}</Text><Text style={styles.settingsHint}>Boardname und Beschreibung können weiterhin über „Verwalten“ im Board geändert werden.</Text></View>
+      </View> : null}
+    </ScrollView>}
+    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.bottomActions} nestedScrollEnabled>
+      <Pressable style={styles.secondary} onPress={() => onViewChange?.(null)}><Text>← Boards</Text></Pressable>
+      {view !== 'settings' ? <Pressable style={styles.secondary} onPress={() => onViewChange?.('settings')}><Text>⚙ Einstellungen</Text></Pressable> : null}
+    </ScrollView>
 
-  return <>
-    {showTabs ? <View style={styles.row}>
-      <Tab label="Aufgaben" active={view === 'tasks'} onPress={() => changeView('tasks')} />
-      <Tab label="Kalender" active={view === 'calendar'} onPress={() => changeView('calendar')} />
-      <Tab label="Dokumente" active={view === 'documents'} onPress={() => changeView('documents')} />
-      <Tab label="Team" active={view === 'team'} onPress={() => changeView('team')} />
-    </View> : null}
-    <Modal visible={!!view} animationType="slide" onRequestClose={() => changeView(null)}>
-      <View style={styles.safe}>
-        <View style={styles.header}><View style={styles.headerMain}><Text style={styles.title}>{title}</Text><Text style={styles.meta}>{boardLabel}</Text></View><Pressable onPress={() => changeView(null)}><Text style={styles.close}>Schließen</Text></Pressable></View>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.boardPicker}>
-          {boards.map(board => <Pressable key={board.id} onPress={() => onSelectedBoardChange?.(board.id)} style={[styles.boardChip, board.id === selectedBoard && styles.boardChipActive]}><Text style={board.id === selectedBoard ? styles.boardChipTextActive : styles.boardChipText}>{board.name}</Text></Pressable>)}
-        </ScrollView>
-        {loading ? <View style={styles.center}><Text>Wird geladen …</Text></View> : <ScrollView contentContainerStyle={styles.content}>
-          {message ? <Text style={styles.error}>{message}</Text> : null}
-          {view === 'tasks' && (cards.length ? cards.map(card => <Pressable key={card.id} style={styles.card} onPress={() => openTask(card)}><Text style={styles.cardTitle}>{card.title}</Text><Text style={styles.meta}>{listMap.get(card.list_id)?.name ?? 'Aufgabe'}{card.assignee_id && profileMap.get(card.assignee_id)?.full_name ? ` · ${profileMap.get(card.assignee_id)?.full_name}` : ''}</Text>{card.due_at ? <Text style={styles.meta}>Fällig: {new Date(card.due_at).toLocaleDateString('de-DE')}</Text> : null}<Text style={styles.openHint}>Details öffnen</Text></Pressable>) : <Empty text="Keine Aufgaben gefunden." />)}
-          {view === 'calendar' && (dueCards.length ? dueCards.map(card => <Pressable key={card.id} style={styles.card} onPress={() => openTask(card)}><Text style={styles.date}>{new Date(card.due_at!).toLocaleDateString('de-DE', { weekday: 'short', day: '2-digit', month: '2-digit', year: 'numeric' })}</Text><Text style={styles.cardTitle}>{card.title}</Text><Text style={styles.meta}>{listMap.get(card.list_id)?.name ?? 'Aufgabe'}</Text><Text style={styles.openHint}>Details öffnen</Text></Pressable>) : <Empty text="Keine fälligen Aufgaben vorhanden." />)}
-          {view === 'documents' && (attachments.length ? attachments.map(item => { const card = cards.find(c => c.id === item.card_id); const canDelete = members.some(m => m.user_id === userId && (m.role === 'owner' || m.role === 'admin')); return <View key={item.id} style={styles.card}><Pressable onPress={() => card ? openTask(card) : void openAttachment(item)}><Text style={styles.cardTitle}>{item.file_name}</Text><Text style={styles.meta}>{listMap.get(card?.list_id ?? '')?.name ?? 'Dokument'} · {card?.title ?? 'Aufgabe'}</Text><Text style={styles.link}>{card ? 'Karte öffnen' : 'Dokument öffnen'}</Text></Pressable><Pressable onPress={() => void openAttachment(item)}><Text style={styles.link}>Datei öffnen</Text></Pressable>{canDelete ? <Pressable onPress={() => void deleteAttachment(item)}><Text style={styles.delete}>Löschen</Text></Pressable> : null}</View>; }) : <Empty text="Keine Dokumente im aktuellen Bereich." />)}
-          {view === 'team' && (members.length ? members.map(member => <View key={member.user_id} style={styles.card}><Text style={styles.cardTitle}>{profileMap.get(member.user_id)?.full_name || 'Teammitglied'}</Text><Text style={styles.meta}>{member.role === 'viewer' ? 'Nur Lesen' : member.role}</Text></View>) : <Empty text="Keine Teammitglieder gefunden." />)}
-        </ScrollView>}
-      </View>
-    </Modal>
-
-    <Modal visible={!!selectedCard} animationType="slide" onRequestClose={() => setSelectedCard(null)}>
-      <View style={styles.safe}>
-        <View style={styles.header}><View style={styles.headerMain}><Text style={styles.title} numberOfLines={2}>{selectedCard?.title}</Text><Text style={styles.meta}>{boardLabel}{selectedList ? ` · ${selectedList.name}` : ''}</Text></View><Pressable onPress={() => setSelectedCard(null)}><Text style={styles.close}>Schließen</Text></Pressable></View>
-        <ScrollView contentContainerStyle={styles.content}>
-          {selectedCard?.description ? <View style={styles.detailBlock}><Text style={styles.detailLabel}>Beschreibung</Text><Text style={styles.detailText}>{selectedCard.description}</Text></View> : null}
-          <View style={styles.detailBlock}><Text style={styles.detailLabel}>Details</Text><Text style={styles.meta}>Priorität: {selectedCard?.priority ?? 'normal'}</Text>{selectedCard?.due_at ? <Text style={styles.meta}>Fällig: {new Date(selectedCard.due_at).toLocaleDateString('de-DE')}</Text> : null}{selectedAssignee ? <Text style={styles.meta}>Zuständig: {selectedAssignee}</Text> : null}</View>
-          {selectedCard ? <CardCollaboration supabase={supabase} cardId={selectedCard.id} userId={userId} /> : null}
-        </ScrollView>
-      </View>
-    </Modal>
-  </>;
+    <View pointerEvents="box-none">
+      {selectedCard ? <View style={styles.cardOverlay}><View style={styles.cardModal}><View style={styles.header}><View style={styles.headerMain}><Text style={styles.title} numberOfLines={2}>{selectedCard.title}</Text><Text style={styles.meta}>{boardLabel}{listMap.get(selectedCard.list_id) ? ` · ${listMap.get(selectedCard.list_id)!.name}` : ''}</Text></View><Pressable onPress={() => setSelectedCard(null)}><Text style={styles.close}>Schließen</Text></Pressable></View><ScrollView style={styles.mainScroll} contentContainerStyle={styles.content} nestedScrollEnabled><Text style={styles.detailLabel}>Details</Text>{selectedCard.description ? <Text style={styles.detailText}>{selectedCard.description}</Text> : null}<Text style={styles.meta}>Priorität: {selectedCard.priority ?? 'normal'}</Text>{selectedCard.due_at ? <Text style={styles.meta}>Fällig: {new Date(selectedCard.due_at).toLocaleDateString('de-DE')}</Text> : null}{selectedCard.assignee_id ? <Text style={styles.meta}>Zuständig: {profileMap.get(selectedCard.assignee_id)?.full_name ?? 'Teammitglied'}</Text> : null}<CardCollaboration supabase={supabase} cardId={selectedCard.id} userId={userId}/></ScrollView></View></View> : null}
+    </View>
+  </View>;
 }
 
+function TextInputShim({ value, onChangeText, placeholder, readOnly }: { value: string; onChangeText?: (value: string) => void; placeholder?: string; readOnly?: boolean }) {
+  const { TextInput } = require('react-native') as typeof import('react-native');
+  return <TextInput style={styles.input} value={value} onChangeText={onChangeText} placeholder={placeholder} editable={!readOnly}/>;
+}
 function Tab({ label, active, onPress }: { label: string; active: boolean; onPress: () => void }) { return <Pressable style={[styles.tab, active && styles.tabActive]} onPress={onPress}><Text style={active ? styles.tabTextActive : styles.tabText}>{label}</Text></Pressable>; }
 function Empty({ text }: { text: string }) { return <View style={styles.empty}><Text>{text}</Text></View>; }
 
 const styles = StyleSheet.create({
-  safe:{flex:1,backgroundColor:'#f8fafc'}, row:{flexDirection:'row',paddingHorizontal:12,paddingBottom:8,gap:6}, tab:{flex:1,minHeight:40,borderRadius:10,borderWidth:1,borderColor:'#d1d5db',alignItems:'center',justifyContent:'center',backgroundColor:'#fff'}, tabActive:{backgroundColor:'#111827',borderColor:'#111827'}, tabText:{fontSize:12}, tabTextActive:{fontSize:12,color:'#fff',fontWeight:'700'}, header:{padding:16,paddingTop:18,flexDirection:'row',justifyContent:'space-between',alignItems:'center',borderBottomWidth:1,borderBottomColor:'#e5e7eb'}, headerMain:{flex:1}, title:{fontSize:24,fontWeight:'800'}, close:{fontSize:14,fontWeight:'700'}, content:{padding:16,gap:10}, boardPicker:{paddingHorizontal:16,paddingVertical:10,gap:8}, boardChip:{backgroundColor:'#fff',borderWidth:1,borderColor:'#d1d5db',borderRadius:999,paddingHorizontal:13,paddingVertical:8}, boardChipActive:{backgroundColor:'#111827',borderColor:'#111827'}, boardChipText:{fontSize:12}, boardChipTextActive:{fontSize:12,color:'#fff',fontWeight:'700'}, center:{flex:1,justifyContent:'center',alignItems:'center'}, card:{backgroundColor:'#fff',borderWidth:1,borderColor:'#e5e7eb',borderRadius:14,padding:14}, cardTitle:{fontSize:16,fontWeight:'700'}, meta:{fontSize:12,color:'#6b7280',marginTop:4}, date:{fontSize:13,fontWeight:'700',marginBottom:4}, link:{fontSize:13,fontWeight:'700',marginTop:8}, openHint:{fontSize:12,fontWeight:'700',marginTop:10}, error:{color:'#b91c1c',padding:12,backgroundColor:'#fee2e2',borderRadius:10}, empty:{padding:24,alignItems:'center'}, detailBlock:{backgroundColor:'#fff',borderRadius:12,padding:14,borderWidth:1,borderColor:'#e5e7eb'}, detailLabel:{fontSize:12,fontWeight:'700',textTransform:'uppercase'}, detailText:{fontSize:14,lineHeight:20,marginTop:6}, delete:{fontSize:13,fontWeight:'700',color:'#b91c1c',marginTop:10}
+  root:{flex:1,backgroundColor:'#f8fafc'},
+  tabScroller:{paddingHorizontal:12,paddingVertical:8,gap:8},
+  tab:{minWidth:104,minHeight:42,paddingHorizontal:14,borderRadius:12,borderWidth:1,borderColor:'#d1d5db',alignItems:'center',justifyContent:'center',backgroundColor:'#fff'},
+  tabActive:{backgroundColor:'#111827',borderColor:'#111827'},
+  tabText:{fontSize:12,color:'#374151',fontWeight:'700'},tabTextActive:{fontSize:12,color:'#fff',fontWeight:'800'},
+  header:{padding:14,flexDirection:'row',justifyContent:'space-between',alignItems:'center',borderBottomWidth:1,borderBottomColor:'#e5e7eb',backgroundColor:'#f8fafc'},
+  headerMain:{flex:1,minWidth:0},title:{fontSize:22,fontWeight:'800'},close:{fontSize:13,fontWeight:'800'},closeButton:{padding:9,borderRadius:10,backgroundColor:'#fff',borderWidth:1,borderColor:'#d1d5db'},
+  meta:{fontSize:12,color:'#6b7280',marginTop:4},boardPicker:{paddingHorizontal:14,paddingVertical:9,gap:8},boardChip:{backgroundColor:'#fff',borderWidth:1,borderColor:'#d1d5db',borderRadius:999,paddingHorizontal:14,paddingVertical:9},boardChipActive:{backgroundColor:'#111827',borderColor:'#111827'},boardChipText:{fontSize:12},boardChipTextActive:{fontSize:12,color:'#fff',fontWeight:'800'},
+  mainScroll:{flex:1},content:{padding:14,paddingBottom:32,gap:10},center:{flex:1,justifyContent:'center',alignItems:'center',padding:24},card:{backgroundColor:'#fff',borderWidth:1,borderColor:'#e5e7eb',borderRadius:14,padding:14},cardTitle:{fontSize:16,fontWeight:'800'},date:{fontSize:13,fontWeight:'800',marginBottom:4},openHint:{fontSize:12,fontWeight:'800',marginTop:10},link:{fontSize:13,fontWeight:'800',marginTop:8},delete:{fontSize:13,fontWeight:'800',color:'#b91c1c',marginTop:10},error:{color:'#b91c1c',padding:12,backgroundColor:'#fee2e2',borderRadius:10},empty:{padding:30,alignItems:'center'},
+  settingsStack:{gap:10},sectionEyebrow:{fontSize:10,fontWeight:'900',color:'#64748b',letterSpacing:1},sectionTitle:{fontSize:20,fontWeight:'800',marginTop:4,marginBottom:12},fieldLabel:{fontSize:12,fontWeight:'800',marginTop:6,marginBottom:5},input:{backgroundColor:'#fff',borderWidth:1,borderColor:'#d1d5db',borderRadius:12,padding:13,fontSize:16,marginBottom:8},primary:{backgroundColor:'#111827',borderRadius:12,padding:14,alignItems:'center',marginTop:8},primaryText:{color:'#fff',fontWeight:'800'},settingsHint:{fontSize:13,color:'#6b7280',lineHeight:19,marginTop:8},detailLabel:{fontSize:12,fontWeight:'900',textTransform:'uppercase',marginBottom:8},detailText:{fontSize:14,lineHeight:21,marginBottom:10},bottomActions:{paddingHorizontal:14,paddingVertical:8,gap:8,borderTopWidth:1,borderTopColor:'#e5e7eb'},secondary:{backgroundColor:'#fff',borderWidth:1,borderColor:'#d1d5db',borderRadius:10,paddingHorizontal:13,paddingVertical:10},cardOverlay:{position:'absolute',inset:0,backgroundColor:'rgba(15,23,42,.35)',zIndex:20,elevation:20},cardModal:{flex:1,marginTop:18,backgroundColor:'#f8fafc',borderRadius:20,overflow:'hidden'}
 });
