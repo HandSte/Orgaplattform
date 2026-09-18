@@ -76,9 +76,20 @@ export default function BoardsPage() {
     if (error) setNotice(error.message);
     const nextBoards = (data ?? []) as Board[];
     setBoards(nextBoards);
-    setSelectedBoardId((current) =>
-      current && nextBoards.some((board) => board.id === current) ? current : nextBoards[0]?.id ?? null,
-    );
+    const requestedBoard = new URLSearchParams(window.location.search).get('board');
+    let storedBoard: string | null = null;
+    try { storedBoard = window.localStorage.getItem(`essentia.activeBoard.${user.id}`); } catch {}
+    const restoredBoard = requestedBoard && nextBoards.some((board) => board.id === requestedBoard)
+      ? requestedBoard
+      : storedBoard && nextBoards.some((board) => board.id === storedBoard)
+        ? storedBoard
+        : nextBoards[0]?.id ?? null;
+    setSelectedBoardId(restoredBoard);
+    if (restoredBoard && requestedBoard !== restoredBoard) {
+      const url = new URL(window.location.href);
+      url.searchParams.set('board', restoredBoard);
+      window.history.replaceState(null, '', `${url.pathname}${url.search}${url.hash}`);
+    }
     setLoading(false);
   }
 
@@ -148,7 +159,13 @@ export default function BoardsPage() {
   }, []);
 
   useEffect(() => {
-    if (selectedBoardId) void loadBoard(selectedBoardId);
+    if (selectedBoardId) {
+      try { if (userId) window.localStorage.setItem(`essentia.activeBoard.${userId}`, selectedBoardId); } catch {}
+      const url = new URL(window.location.href);
+      url.searchParams.set('board', selectedBoardId);
+      window.history.replaceState(null, '', `${url.pathname}${url.search}${url.hash}`);
+      void loadBoard(selectedBoardId);
+    }
     else {
       setLists([]);
       setCards([]);
