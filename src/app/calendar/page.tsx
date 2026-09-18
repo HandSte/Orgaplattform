@@ -12,7 +12,10 @@ type BoardEvent = {
   date: string;
   kind: 'board';
 };
-type CalendarItem = BoardEvent | (CalendarEvent & { kind: 'manual'; boardName: string | null });
+type CalendarItem =
+  | BoardEvent
+  | (CalendarEvent & { kind: 'manual'; boardName: string | null })
+  | { id: string; title: string; date: string; boardId: string; kind: 'event'; boardName: string };
 
 function localDateValue(date: Date) {
   const y = date.getFullYear();
@@ -32,6 +35,7 @@ export default function CalendarPage() {
   const [boards, setBoards] = useState<Board[]>([]);
   const [userId, setUserId] = useState<string | null>(null);
   const [manualEvents, setManualEvents] = useState<Array<CalendarEvent & { kind: 'manual'; boardName: string | null }>>([]);
+  const [dueEvents, setDueEvents] = useState<Array<{ id: string; title: string; due_at: string; boardId: string; boardName: string; kind: 'task' }>>([]);
   const [loading, setLoading] = useState(true);
   const [notice, setNotice] = useState('');
   const [formOpen, setFormOpen] = useState(false);
@@ -60,6 +64,38 @@ export default function CalendarPage() {
     setBoards(nextBoards);
     const boardMap = new Map(nextBoards.map(board => [board.id, board.name]));
     setManualEvents(((eventData ?? []) as CalendarEvent[]).map(event => ({ ...event, kind: 'manual' as const, boardName: event.board_id ? boardMap.get(event.board_id) ?? 'Board' : null })));
+
+    // Calendar is workspace-wide: task due dates are loaded from every board,
+    // independent of the currently selected board.
+    const boardIds = nextBoards.map(board => board.id);
+    if (boardIds.length) {
+      const { data: listData, error: listError } = await supabase
+        .from('lists')
+        .select('id,board_id')
+        .in('board_id', boardIds);
+      if (listError) setNotice(listError.message);
+      const listRows = (listData ?? []) as Array<{ id: string; board_id: string }>;
+      const listIds = listRows.map(list => list.id);
+      if (listIds.length) {
+        const { data: cardData, error: cardError } = await supabase
+          .from('cards')
+          .select('id,title,due_at,list_id')
+          .not('due_at', 'is', null)
+          .in('list_id', listIds);
+        if (cardError) setNotice(cardError.message);
+        const listBoard = new Map(listRows.map(list => [list.id, list.board_id]));
+        setDueEvents(((cardData ?? []) as Array<{ id: string; title: string; due_at: string; list_id: string }>)
+          .map(card => {
+            const boardId = listBoard.get(card.list_id) ?? '';
+            return { id: card.id, title: card.title, due_at: card.due_at, boardId, boardName: boardMap.get(boardId) ?? 'Board', kind: 'task' as const };
+          })
+          .filter(item => item.boardId));
+      } else {
+        setDueEvents([]);
+      }
+    } else {
+      setDueEvents([]);
+    }
     setLoading(false);
   }
 
@@ -73,7 +109,18 @@ export default function CalendarPage() {
     kind: 'board' as const,
   })), [boards]);
 
-  const items = useMemo<CalendarItem[]>(() => [...boardEvents, ...manualEvents], [boardEvents, manualEvents]);
+  const items = useMemo<CalendarItem[]>(() => [
+    ...boardEvents,
+    ...manualEvents,
+    ...dueEvents.map(event => ({
+      id: `task-${event.id}`,
+      title: event.title,
+      date: event.due_at,
+      boardId: event.boardId,
+      kind: 'event' as const,
+      boardName: event.boardName,
+    })),
+  ], [boardEvents, manualEvents, dueEvents]);
   const days = useMemo(() => {
     const first = new Date(month.getFullYear(), month.getMonth(), 1);
     const offset = (first.getDay() + 6) % 7;
@@ -85,14 +132,14 @@ export default function CalendarPage() {
   }, [month]);
 
   const monthItems = items.filter(item => {
-    const d = item.kind === 'board' ? new Date(`${item.date}T00:00:00`) : new Date(item.starts_at);
+    const d = item.kind === 'board' || item.kind === 'event' ? new Date(item.date) : new Date(item.starts_at);
     return d.getFullYear() === month.getFullYear() && d.getMonth() === month.getMonth();
   });
 
   function eventFor(day: Date) {
     const key = localDateValue(day);
     return monthItems.filter(item => {
-      const d = item.kind === 'board' ? item.date : localDateValue(new Date(item.starts_at));
+      const d = item.kind === 'board' || item.kind === 'event' ? localDateValue(new Date(item.date)) : localDateValue(new Date(item.starts_at));
       return d === key;
     });
   }
@@ -180,7 +227,9 @@ export default function CalendarPage() {
               <button className="calendar-day-number" onClick={() => openCreate(localDateValue(day))} aria-label={`Termin am ${day.toLocaleDateString('de-DE')}`}>{day.getDate()}</button>
               {eventFor(day).slice(0, 5).map(item => item.kind === 'board'
                 ? <a className="calendar-event calendar-event-board" key={item.id} href={`/?board=${item.boardId}`} title={`Board-Datum: ${item.title}`}><b>{item.title}</b><small>Board-Datum</small></a>
-                : <button className="calendar-event" key={item.id} onClick={() => openEdit(item)} title="Termin bearbeiten"><b>{item.title}</b><small>{item.all_day ? 'Ganztägig' : new Date(item.starts_at).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })}{item.boardName ? ` · ${item.boardName}` : ''}</small></button>
+                : item.kind === 'event'
+                  ? <a className="calendar-event calendar-event-board" key={item.id} href={`/?board=${item.boardId}`} title={`Aufgabe: ${item.title} · ${item.boardName}`}><b>{item.title}</b><small>Aufgabe · {item.boardName}</small></a>
+                  : <button className="calendar-event" key={item.id} onClick={() => openEdit(item)} title="Termin bearbeiten"><b>{item.title}</b><small>{item.all_day ? 'Ganztägig' : new Date(item.starts_at).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })}{item.boardName ? ` · ${item.boardName}` : ''}</small></button>
               )}
             </>}
           </div>)}
