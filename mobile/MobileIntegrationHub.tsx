@@ -167,6 +167,7 @@ export default function MobileIntegrationHub({ supabase, userId, selectedBoard, 
         if ([oldRow.card_id, newRow.card_id].some(id => Boolean(id) && cardIdsRef.current.has(id as string))) scheduleRefresh();
       })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'board_members', ...(selectedBoard ? { filter: `board_id=eq.${selectedBoard}` } : {}) }, scheduleRefresh)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'calendar_events' }, scheduleRefresh)
       .subscribe();
     return () => {
       ++loadSeq.current;
