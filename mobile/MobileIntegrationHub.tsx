@@ -168,7 +168,12 @@ export default function MobileIntegrationHub({ supabase, userId, selectedBoard, 
   const selectedAssignee = selectedCard?.assignee_id ? profileMap.get(selectedCard.assignee_id)?.full_name : null;
 
   return <>
-    {showTabs ? row : null}
+    {showTabs ? <View style={styles.row}>
+      <Tab label="Aufgaben" active={view === 'tasks'} onPress={() => changeView('tasks')} />
+      <Tab label="Kalender" active={view === 'calendar'} onPress={() => changeView('calendar')} />
+      <Tab label="Dokumente" active={view === 'documents'} onPress={() => changeView('documents')} />
+      <Tab label="Team" active={view === 'team'} onPress={() => changeView('team')} />
+    </View> : null}
     <Modal visible={!!view} animationType="slide" onRequestClose={() => changeView(null)}>
       <View style={styles.safe}>
         <View style={styles.header}><View style={styles.headerMain}><Text style={styles.title}>{title}</Text><Text style={styles.meta}>{boardLabel}</Text></View><Pressable onPress={() => changeView(null)}><Text style={styles.close}>Schließen</Text></Pressable></View>
