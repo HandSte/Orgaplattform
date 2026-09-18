@@ -24,6 +24,34 @@ export default {
       const userEmail = ctx.userClaims?.email;
       if (!userId || !userEmail) return Response.json({ error: 'Ungültige Sitzung.' }, { status: 401 });
 
+      if (body.action === 'sync') {
+        const normalizedEmail = userEmail.toLowerCase();
+        const { data: invitations, error: invitationError } = await ctx.supabaseAdmin
+          .from('board_invitations')
+          .select('id,board_id,role,expires_at')
+          .eq('email', normalizedEmail)
+          .is('accepted_at', null)
+          .gt('expires_at', new Date().toISOString());
+        if (invitationError) return Response.json({ error: invitationError.message }, { status: 500 });
+
+        const acceptedBoardIds: string[] = [];
+        for (const invitation of invitations ?? []) {
+          const { error: memberError } = await ctx.supabaseAdmin
+            .from('board_members')
+            .upsert({ board_id: invitation.board_id, user_id: userId, role: invitation.role }, { onConflict: 'board_id,user_id' });
+          if (memberError) return Response.json({ error: memberError.message }, { status: 500 });
+
+          const { error: acceptError } = await ctx.supabaseAdmin
+            .from('board_invitations')
+            .update({ accepted_at: new Date().toISOString() })
+            .eq('id', invitation.id)
+            .is('accepted_at', null);
+          if (acceptError) return Response.json({ error: acceptError.message }, { status: 500 });
+          acceptedBoardIds.push(invitation.board_id);
+        }
+        return Response.json({ synced: acceptedBoardIds.length, board_ids: acceptedBoardIds });
+      }
+
       if (body.action === 'create') {
         const { board_id, email, role = 'member' } = body;
         if (!board_id || !email) return Response.json({ error: 'Board und E-Mail sind erforderlich.' }, { status: 400 });
