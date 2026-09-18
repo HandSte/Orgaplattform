@@ -9,7 +9,7 @@ type Card = { id: string; list_id: string; title: string; description?: string |
 type Profile = { id: string; full_name: string | null };
 type Member = { user_id: string; role: string };
 type Attachment = { id: string; card_id: string; file_name: string; mime_type?: string | null; size_bytes?: number | null; storage_path: string; created_at: string };
-type AppView = 'boards' | 'tasks' | 'calendar' | 'documents' | 'team' | 'settings';
+type AppView = 'overview' | 'boards' | 'tasks' | 'calendar' | 'documents' | 'team' | 'settings';
 
 type Props = {
   supabase: SupabaseClient;
@@ -187,7 +187,7 @@ export default function MobileIntegrationHub({ supabase, userId, selectedBoard, 
     </ScrollView> : null}
     <View style={styles.header}>
       <View style={styles.headerMain}><Text style={styles.title}>{title}</Text><Text style={styles.meta}>{boardLabel}</Text></View>
-      <Pressable style={styles.closeButton} onPress={() => onViewChange?.(null)}><Text style={styles.close}>Schließen</Text></Pressable>
+      <Pressable style={styles.closeButton} onPress={() => onViewChange?.('overview')}><Text style={styles.close}>Schließen</Text></Pressable>
     </View>
     {view !== 'boards' ? <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.boardPicker} nestedScrollEnabled keyboardShouldPersistTaps="handled">
       {boards.map(board => <Pressable key={board.id} onPress={() => onSelectedBoardChange?.(board.id)} style={[styles.boardChip, board.id === selectedBoard && styles.boardChipActive]}><Text style={board.id === selectedBoard ? styles.boardChipTextActive : styles.boardChipText}>{board.name}</Text></Pressable>)}
