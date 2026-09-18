@@ -9,7 +9,7 @@ import { BRANDING } from './branding';
 
 type Board = { id: string; name: string };
 type Card = { id: string; list_id: string; title: string; description?: string | null; due_at?: string | null; assignee_id?: string | null; priority?: string | null };
-type AppView = 'boards' | 'tasks' | 'calendar' | 'documents' | 'team' | 'settings';
+type AppView = 'overview' | 'boards' | 'tasks' | 'calendar' | 'documents' | 'team' | 'settings';
 
 const url = process.env.EXPO_PUBLIC_SUPABASE_URL;
 const key = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
@@ -20,7 +20,7 @@ export default function AppIntegrated() {
   const [boards, setBoards] = useState<Board[]>([]);
   const [selectedBoard, setSelectedBoard] = useState<string | null>(null);
   const [openCardId, setOpenCardId] = useState<string | null>(null);
-  const [view, setView] = useState<AppView | null>(null);
+  const [view, setView] = useState<AppView>('overview');
   const [menuOpen, setMenuOpen] = useState(false);
   const [loadingBoards, setLoadingBoards] = useState(false);
   const [boardError, setBoardError] = useState('');
@@ -37,7 +37,7 @@ export default function AppIntegrated() {
   useEffect(() => {
     if (!supabase || !userId) {
       ++boardLoadSeq.current;
-      setBoards([]); setSelectedBoard(null); setOpenCardId(null); setView(null); setLoadingBoards(false); setBoardError('');
+      setBoards([]); setSelectedBoard(null); setOpenCardId(null); setView('overview'); setLoadingBoards(false); setBoardError('');
       return;
     }
     let alive = true;
@@ -75,7 +75,7 @@ export default function AppIntegrated() {
       <View style={styles.headerGlow} />
     <Pressable style={styles.menuHeaderButton} onPress={()=>setMenuOpen(true)}><Text style={styles.menuHeaderText}>Menü</Text></Pressable></View>
     <View style={styles.appArea}>
-      <App selectedBoard={selectedBoard} onSelectedBoardChange={setSelectedBoard} openCardId={openCardId} onOpenCardHandled={() => setOpenCardId(null)} onNavigate={setView} />
+      {view === 'overview' ? <App selectedBoard={selectedBoard} onSelectedBoardChange={setSelectedBoard} openCardId={openCardId} onOpenCardHandled={() => setOpenCardId(null)} onNavigate={setView} /> : null}
     </View>
     <View style={styles.bottomNav}>
       <NavButton label="Boards" icon="▦" active={view === 'boards'} onPress={() => {setView('boards');setMenuOpen(false)}} />
@@ -92,7 +92,7 @@ export default function AppIntegrated() {
         <View style={styles.drawer}>
           <View style={styles.drawerHead}><View><Text style={styles.drawerTitle}>Essentia</Text><Text style={styles.drawerSubtitle}>Arbeitsbereich</Text></View><Pressable style={styles.drawerClose} onPress={()=>setMenuOpen(false)}><Text style={styles.drawerCloseText}>×</Text></Pressable></View>
           <ScrollView contentContainerStyle={styles.drawerScroll} showsVerticalScrollIndicator={false}>
-            <MenuItem label="Übersicht" icon="⌂" active={view===null} onPress={()=>{setView(null);setMenuOpen(false)}} />
+            <MenuItem label="Übersicht" icon="⌂" active={view==='overview'} onPress={()=>{setView('overview');setMenuOpen(false)}} />
             <MenuItem label="Meine Boards" icon="▦" active={view==='boards'} onPress={()=>{setView('boards');setMenuOpen(false)}} />
             <MenuItem label="Aufgaben" icon="☑" active={view==='tasks'} onPress={()=>{setView('tasks');setMenuOpen(false)}} />
             <MenuItem label="Team" icon="♙" active={view==='team'} onPress={()=>{setView('team');setMenuOpen(false)}} />
@@ -103,7 +103,7 @@ export default function AppIntegrated() {
           </ScrollView>
         </View>
       </View> : null}
-      {view ? <MobileIntegrationHub supabase={supabase} userId={userId} selectedBoard={selectedBoard} boards={boards} onSelectedBoardChange={setSelectedBoard} onOpenCard={(card: Card) => setOpenCardId(card.id)} view={view} onViewChange={setView} showTabs={false} /> : null}
+      {view !== 'overview' ? <MobileIntegrationHub supabase={supabase} userId={userId} selectedBoard={selectedBoard} boards={boards} onSelectedBoardChange={setSelectedBoard} onOpenCard={(card: Card) => { setOpenCardId(card.id); setView('overview'); }} view={view} onViewChange={setView} showTabs={false} /> : null}
     </View> : null}
   </View></AppErrorBoundary>;
 }
