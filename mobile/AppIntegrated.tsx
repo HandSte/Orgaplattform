@@ -68,7 +68,7 @@ export default function AppIntegrated() {
       <View style={styles.brandCopy}>
         <View style={styles.brandNameRow}>
           <Text style={styles.brandName}>{BRANDING.appName}</Text>
-          <View style={styles.versionPill}><Text style={styles.versionText}>v0.3.0</Text></View>
+          <View style={styles.versionPill}><Text style={styles.versionText}>v0.3.1</Text></View>
         </View>
         <Text style={styles.brandTagline}>{BRANDING.tagline}</Text>
       </View>
