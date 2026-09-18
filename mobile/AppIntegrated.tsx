@@ -48,7 +48,8 @@ export default function AppIntegrated() {
       if (error) { setBoardError(error.message); setLoadingBoards(false); return; }
       const next = (data ?? []) as Board[];
       setBoards(next);
-      setSelectedBoard(current => current && next.some(board => board.id === current) ? current : next[0]?.id ?? null);
+      const stored = await AsyncStorage.getItem(`essentia.activeBoard.${userId}`);
+      setSelectedBoard(current => current && next.some(board => board.id === current) ? current : stored && next.some(board => board.id === stored) ? stored : next[0]?.id ?? null);
       setLoadingBoards(false);
     };
     void loadBoards();
@@ -58,7 +59,7 @@ export default function AppIntegrated() {
     return () => { alive = false; ++boardLoadSeq.current; void supabase.removeChannel(channel); };
   }, [userId]);
 
-  useEffect(() => { setOpenCardId(null); }, [selectedBoard]);
+  useEffect(() => { setOpenCardId(null); if (userId && selectedBoard) void AsyncStorage.setItem(`essentia.activeBoard.${userId}`, selectedBoard); }, [selectedBoard, userId]);
 
   return <AppErrorBoundary><View style={styles.root}>
     <View style={styles.brandHeader}>
