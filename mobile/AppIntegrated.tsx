@@ -1,6 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useEffect, useRef, useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import App from './App';
 import AppErrorBoundary from './AppErrorBoundary';
@@ -9,7 +9,7 @@ import { BRANDING } from './branding';
 
 type Board = { id: string; name: string };
 type Card = { id: string; list_id: string; title: string; description?: string | null; due_at?: string | null; assignee_id?: string | null; priority?: string | null };
-type AppView = 'tasks' | 'calendar' | 'documents' | 'team';
+type AppView = 'tasks' | 'calendar' | 'documents' | 'team' | 'settings';
 
 const url = process.env.EXPO_PUBLIC_SUPABASE_URL;
 const key = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
@@ -21,6 +21,7 @@ export default function AppIntegrated() {
   const [selectedBoard, setSelectedBoard] = useState<string | null>(null);
   const [openCardId, setOpenCardId] = useState<string | null>(null);
   const [view, setView] = useState<AppView | null>(null);
+  const [menuOpen, setMenuOpen] = useState(false);
   const [loadingBoards, setLoadingBoards] = useState(false);
   const [boardError, setBoardError] = useState('');
   const boardLoadSeq = useRef(0);
@@ -63,7 +64,7 @@ export default function AppIntegrated() {
 
   return <AppErrorBoundary><View style={styles.root}>
     <View style={styles.brandHeader}>
-      <View style={styles.brandMark}><Text style={styles.brandMarkText}>{BRANDING.monogram}</Text></View>
+      <Pressable style={styles.brandMark} onPress={()=>setMenuOpen(true)} accessibilityLabel="Menü öffnen"><Text style={styles.menuGlyph}>☰</Text></Pressable>
       <View style={styles.brandCopy}>
         <View style={styles.brandNameRow}>
           <Text style={styles.brandName}>{BRANDING.appName}</Text>
@@ -72,20 +73,36 @@ export default function AppIntegrated() {
         <Text style={styles.brandTagline}>{BRANDING.tagline}</Text>
       </View>
       <View style={styles.headerGlow} />
-    </View>
+    <Pressable style={styles.menuHeaderButton} onPress={()=>setMenuOpen(true)}><Text style={styles.menuHeaderText}>Menü</Text></Pressable></View>
     <View style={styles.appArea}>
       <App selectedBoard={selectedBoard} onSelectedBoardChange={setSelectedBoard} openCardId={openCardId} onOpenCardHandled={() => setOpenCardId(null)} onNavigate={setView} />
     </View>
     <View style={styles.bottomNav}>
-      <NavButton label="Boards" icon="▦" active={view === null} onPress={() => setView(null)} />
-      <NavButton label="Aufgaben" icon="☑" active={view === 'tasks'} onPress={() => setView('tasks')} />
-      <NavButton label="Kalender" icon="□" active={view === 'calendar'} onPress={() => setView('calendar')} />
-      <NavButton label="Dokumente" icon="▤" active={view === 'documents'} onPress={() => setView('documents')} />
-      <NavButton label="Team" icon="♙" active={view === 'team'} onPress={() => setView('team')} />
+      <NavButton label="Boards" icon="▦" active={view === null} onPress={() => {setView(null);setMenuOpen(false)}} />
+      <NavButton label="Aufgaben" icon="☑" active={view === 'tasks'} onPress={() => {setView('tasks');setMenuOpen(false)}} />
+      <NavButton label="Kalender" icon="□" active={view === 'calendar'} onPress={() => {setView('calendar');setMenuOpen(false)}} />
+      <NavButton label="Dokumente" icon="▤" active={view === 'documents'} onPress={() => {setView('documents');setMenuOpen(false)}} />
+      <NavButton label="Team" icon="♙" active={view === 'team'} onPress={() => {setView('team');setMenuOpen(false)}} />
     </View>
     {loadingBoards ? <View pointerEvents="none" style={styles.loading}><View style={styles.statusDot} /><Text style={styles.loadingText}>Arbeitsbereiche werden synchronisiert …</Text></View> : null}
     {boardError ? <View pointerEvents="none" style={styles.error}><Text style={styles.errorText}>Board-Synchronisierung: {boardError}</Text></View> : null}
     {supabase && userId && view ? <View pointerEvents="box-none" style={styles.overlay}>
+      {menuOpen ? <View style={styles.menuLayer}>
+        <Pressable style={styles.menuBackdrop} onPress={()=>setMenuOpen(false)} />
+        <View style={styles.drawer}>
+          <View style={styles.drawerHead}><View><Text style={styles.drawerTitle}>Essentia</Text><Text style={styles.drawerSubtitle}>Arbeitsbereich</Text></View><Pressable style={styles.drawerClose} onPress={()=>setMenuOpen(false)}><Text style={styles.drawerCloseText}>×</Text></Pressable></View>
+          <ScrollView contentContainerStyle={styles.drawerScroll} showsVerticalScrollIndicator={false}>
+            <MenuItem label="Übersicht" icon="⌂" active={view===null} onPress={()=>{setView(null);setMenuOpen(false)}} />
+            <MenuItem label="Meine Boards" icon="▦" active={view===null} onPress={()=>{setView(null);setMenuOpen(false)}} />
+            <MenuItem label="Aufgaben" icon="☑" active={view==='tasks'} onPress={()=>{setView('tasks');setMenuOpen(false)}} />
+            <MenuItem label="Team" icon="♙" active={view==='team'} onPress={()=>{setView('team');setMenuOpen(false)}} />
+            <MenuItem label="Kalender" icon="□" active={view==='calendar'} onPress={()=>{setView('calendar');setMenuOpen(false)}} />
+            <MenuItem label="Dokumente" icon="▤" active={view==='documents'} onPress={()=>{setView('documents');setMenuOpen(false)}} />
+            <View style={styles.drawerDivider} />
+            <MenuItem label="Einstellungen" icon="⚙" active={view==='settings'} onPress={()=>{setView('settings');setMenuOpen(false)}} />
+          </ScrollView>
+        </View>
+      </View> : null}
       <MobileIntegrationHub supabase={supabase} userId={userId} selectedBoard={selectedBoard} boards={boards} onSelectedBoardChange={setSelectedBoard} onOpenCard={(card: Card) => setOpenCardId(card.id)} view={view} onViewChange={setView} showTabs={false} />
     </View> : null}
   </View></AppErrorBoundary>;
@@ -96,16 +113,24 @@ function NavButton({ label, icon, active, onPress }: { label: string; icon: stri
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: '#f1f5f9' },
   appArea: { flex: 1, minHeight: 0 },
-  bottomNav: { height: 72, paddingHorizontal: 6, paddingTop: 6, paddingBottom: 7, flexDirection: 'row', alignItems: 'stretch', backgroundColor: '#ffffff', borderTopWidth: 1, borderTopColor: '#e2e8f0', elevation: 12, shadowColor: '#0f172a', shadowOpacity: 0.08, shadowRadius: 10, shadowOffset: { width: 0, height: -3 } },
+  bottomNav: { minHeight: 72, paddingHorizontal: 6, paddingTop: 6, paddingBottom: 7, flexDirection: 'row', alignItems: 'stretch', backgroundColor: '#ffffff', borderTopWidth: 1, borderTopColor: '#e2e8f0', elevation: 12, shadowColor: '#0f172a', shadowOpacity: 0.08, shadowRadius: 10, shadowOffset: { width: 0, height: -3 } },
   navButton: { flex: 1, borderRadius: 12, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 2 },
   navButtonActive: { backgroundColor: '#eef2f7' },
   navIcon: { fontSize: 18, lineHeight: 22, color: '#64748b', fontWeight: '800' },
   navIconActive: { color: '#0f172a' },
-  navLabel: { marginTop: 2, fontSize: 9, color: '#64748b', fontWeight: '700' },
+  navLabel: { marginTop: 2, fontSize: 10, color: '#64748b', fontWeight: '700' },
   navLabelActive: { color: '#0f172a' },
   brandHeader: { height: 68, paddingHorizontal: 16, flexDirection: 'row', alignItems: 'center', backgroundColor: '#0f172a', borderBottomWidth: 1, borderBottomColor: '#1e293b', overflow: 'hidden' },
   brandMark: { width: 44, height: 44, borderRadius: 14, backgroundColor: '#ffffff', alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: '#e2e8f0' },
   brandMarkText: { color: '#0f172a', fontSize: 22, fontWeight: '900' },
+  menuGlyph:{color:'#0f172a',fontSize:20,fontWeight:'900'},
+  menuHeaderButton:{paddingHorizontal:12,paddingVertical:8,borderRadius:10,borderWidth:1,borderColor:'#334155',backgroundColor:'#111827'},
+  menuHeaderText:{color:'#f8fafc',fontSize:12,fontWeight:'800'},
+  menuLayer:{position:'absolute',left:0,right:0,top:0,bottom:0,zIndex:100,elevation:100},
+  menuBackdrop:{position:'absolute',left:0,right:0,top:0,bottom:0,backgroundColor:'rgba(15,23,42,.48)'},
+  drawer:{position:'absolute',left:0,top:0,bottom:0,width:310,maxWidth:'86%',backgroundColor:'#fff',shadowColor:'#000',shadowOpacity:.2,shadowRadius:16,shadowOffset:{width:4,height:0},elevation:18},
+  drawerHead:{paddingHorizontal:18,paddingTop:22,paddingBottom:16,flexDirection:'row',alignItems:'center',justifyContent:'space-between',borderBottomWidth:1,borderBottomColor:'#e5e7eb'},
+  drawerTitle:{fontSize:22,fontWeight:'900',color:'#0f172a'},drawerSubtitle:{fontSize:11,color:'#64748b',marginTop:2},drawerClose:{width:38,height:38,borderRadius:12,backgroundColor:'#f1f5f9',alignItems:'center',justifyContent:'center'},drawerCloseText:{fontSize:25,color:'#475569',lineHeight:28},drawerScroll:{padding:12,paddingBottom:30,gap:5},menuItem:{minHeight:52,borderRadius:13,paddingHorizontal:14,flexDirection:'row',alignItems:'center',gap:13},menuItemActive:{backgroundColor:'#eef2f7'},menuItemIcon:{width:24,textAlign:'center',fontSize:18,color:'#64748b',fontWeight:'800'},menuItemIconActive:{color:'#0f172a'},menuItemText:{fontSize:15,color:'#334155',fontWeight:'700'},menuItemTextActive:{color:'#0f172a',fontWeight:'900'},drawerDivider:{height:1,backgroundColor:'#e5e7eb',marginVertical:9,marginHorizontal:4},
   brandCopy: { marginLeft: 11, flex: 1 },
   brandNameRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   brandName: { color: '#f8fafc', fontSize: 18, fontWeight: '900', letterSpacing: 0.2 },
