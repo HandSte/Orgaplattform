@@ -30,6 +30,7 @@ function toLocalDateTime(value: string | null) {
 export default function CalendarPage() {
   const [month, setMonth] = useState(() => { const d = new Date(); return new Date(d.getFullYear(), d.getMonth(), 1); });
   const [boards, setBoards] = useState<Board[]>([]);
+  const [userId, setUserId] = useState<string | null>(null);
   const [manualEvents, setManualEvents] = useState<Array<CalendarEvent & { kind: 'manual'; boardName: string | null }>>([]);
   const [loading, setLoading] = useState(true);
   const [notice, setNotice] = useState('');
@@ -47,6 +48,8 @@ export default function CalendarPage() {
   async function load() {
     if (!supabase) return;
     setLoading(true);
+    const { data: session } = await supabase.auth.getSession();
+    setUserId(session.session?.user?.id ?? null);
     const [{ data: boardData, error: boardError }, { data: eventData, error: eventError }] = await Promise.all([
       supabase.from('boards').select('*').order('updated_at', { ascending: false }),
       supabase.from('calendar_events').select('*').order('starts_at', { ascending: true }),
@@ -119,7 +122,7 @@ export default function CalendarPage() {
   }
 
   async function saveEvent() {
-    if (!supabase || !title.trim() || !date || saving) return;
+    if (!supabase || !userId || !title.trim() || !date || saving) return;
     setSaving(true);
     setNotice('');
     const startsAt = allDay ? new Date(`${date}T00:00:00`) : new Date(`${date}T${startTime || '09:00'}`);
@@ -136,6 +139,7 @@ export default function CalendarPage() {
       ends_at: endsAt?.toISOString() ?? null,
       all_day: allDay,
       board_id: boardId || null,
+      created_by: userId,
     };
     const result = editing
       ? await supabase.from('calendar_events').update(payload).eq('id', editing.id).select().single()
