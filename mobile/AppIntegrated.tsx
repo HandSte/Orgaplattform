@@ -9,7 +9,7 @@ import { BRANDING } from './branding';
 
 type Board = { id: string; name: string };
 type Card = { id: string; list_id: string; title: string; description?: string | null; due_at?: string | null; assignee_id?: string | null; priority?: string | null };
-type AppView = 'tasks' | 'calendar' | 'documents' | 'team' | 'settings';
+type AppView = 'boards' | 'tasks' | 'calendar' | 'documents' | 'team' | 'settings';
 
 const url = process.env.EXPO_PUBLIC_SUPABASE_URL;
 const key = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
@@ -78,7 +78,7 @@ export default function AppIntegrated() {
       <App selectedBoard={selectedBoard} onSelectedBoardChange={setSelectedBoard} openCardId={openCardId} onOpenCardHandled={() => setOpenCardId(null)} onNavigate={setView} />
     </View>
     <View style={styles.bottomNav}>
-      <NavButton label="Boards" icon="▦" active={view === null} onPress={() => {setView(null);setMenuOpen(false)}} />
+      <NavButton label="Boards" icon="▦" active={view === 'boards'} onPress={() => {setView('boards');setMenuOpen(false)}} />
       <NavButton label="Aufgaben" icon="☑" active={view === 'tasks'} onPress={() => {setView('tasks');setMenuOpen(false)}} />
       <NavButton label="Kalender" icon="□" active={view === 'calendar'} onPress={() => {setView('calendar');setMenuOpen(false)}} />
       <NavButton label="Dokumente" icon="▤" active={view === 'documents'} onPress={() => {setView('documents');setMenuOpen(false)}} />
@@ -93,7 +93,7 @@ export default function AppIntegrated() {
           <View style={styles.drawerHead}><View><Text style={styles.drawerTitle}>Essentia</Text><Text style={styles.drawerSubtitle}>Arbeitsbereich</Text></View><Pressable style={styles.drawerClose} onPress={()=>setMenuOpen(false)}><Text style={styles.drawerCloseText}>×</Text></Pressable></View>
           <ScrollView contentContainerStyle={styles.drawerScroll} showsVerticalScrollIndicator={false}>
             <MenuItem label="Übersicht" icon="⌂" active={view===null} onPress={()=>{setView(null);setMenuOpen(false)}} />
-            <MenuItem label="Meine Boards" icon="▦" active={view===null} onPress={()=>{setView(null);setMenuOpen(false)}} />
+            <MenuItem label="Meine Boards" icon="▦" active={view==='boards'} onPress={()=>{setView('boards');setMenuOpen(false)}} />
             <MenuItem label="Aufgaben" icon="☑" active={view==='tasks'} onPress={()=>{setView('tasks');setMenuOpen(false)}} />
             <MenuItem label="Team" icon="♙" active={view==='team'} onPress={()=>{setView('team');setMenuOpen(false)}} />
             <MenuItem label="Kalender" icon="□" active={view==='calendar'} onPress={()=>{setView('calendar');setMenuOpen(false)}} />
