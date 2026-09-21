@@ -43,6 +43,7 @@ export default function CalendarPage() {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [date, setDate] = useState(localDateValue(new Date()));
+  const [endDate, setEndDate] = useState('');
   const [startTime, setStartTime] = useState('09:00');
   const [endTime, setEndTime] = useState('10:00');
   const [allDay, setAllDay] = useState(false);
@@ -132,15 +133,20 @@ export default function CalendarPage() {
   }, [month]);
 
   const monthItems = items.filter(item => {
-    const d = item.kind === 'board' || item.kind === 'event' ? new Date(item.date) : new Date(item.starts_at);
-    return d.getFullYear() === month.getFullYear() && d.getMonth() === month.getMonth();
+    const start = item.kind === 'board' || item.kind === 'event' ? new Date(item.date) : new Date(item.starts_at);
+    const end = item.kind === 'manual' && item.ends_at ? new Date(item.ends_at) : start;
+    const monthStart = new Date(month.getFullYear(), month.getMonth(), 1);
+    const monthEnd = new Date(month.getFullYear(), month.getMonth() + 1, 0, 23, 59, 59, 999);
+    return start <= monthEnd && end >= monthStart;
   });
 
   function eventFor(day: Date) {
     const key = localDateValue(day);
     return monthItems.filter(item => {
-      const d = item.kind === 'board' || item.kind === 'event' ? localDateValue(new Date(item.date)) : localDateValue(new Date(item.starts_at));
-      return d === key;
+      if (item.kind === 'board' || item.kind === 'event') return localDateValue(new Date(item.date)) === key;
+      const start = localDateValue(new Date(item.starts_at));
+      const end = item.ends_at ? localDateValue(new Date(item.ends_at)) : start;
+      return key >= start && key <= end;
     });
   }
 
@@ -149,6 +155,7 @@ export default function CalendarPage() {
     setTitle('');
     setDescription('');
     setDate(prefillDate);
+    setEndDate('');
     setStartTime('09:00');
     setEndTime('10:00');
     setAllDay(false);
@@ -160,7 +167,10 @@ export default function CalendarPage() {
     setEditing(event);
     setTitle(event.title);
     setDescription(event.description ?? '');
-    setDate(localDateValue(new Date(event.starts_at)));
+    const startDate = localDateValue(new Date(event.starts_at));
+    const eventEndDate = event.ends_at ? localDateValue(new Date(event.ends_at)) : '';
+    setDate(startDate);
+    setEndDate(eventEndDate && eventEndDate !== startDate ? eventEndDate : '');
     setStartTime(new Date(event.starts_at).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' }));
     setEndTime(event.ends_at ? new Date(event.ends_at).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' }) : '');
     setAllDay(event.all_day);
@@ -172,9 +182,12 @@ export default function CalendarPage() {
     if (!supabase || !userId || !title.trim() || !date || saving) return;
     setSaving(true);
     setNotice('');
+    const effectiveEndDate = endDate || date;
     const startsAt = allDay ? new Date(`${date}T00:00:00`) : new Date(`${date}T${startTime || '09:00'}`);
-    const endsAt = allDay ? null : (endTime ? new Date(`${date}T${endTime}`) : null);
-    if (endsAt && endsAt < startsAt) {
+    const endsAt = allDay
+      ? (endDate ? new Date(`${effectiveEndDate}T23:59:59`) : null)
+      : (endTime ? new Date(`${effectiveEndDate}T${endTime}`) : null);
+    if (effectiveEndDate < date || (endsAt && endsAt < startsAt)) {
       setNotice('Das Enddatum bzw. die Endzeit darf nicht vor dem Beginn liegen.');
       setSaving(false);
       return;
@@ -222,14 +235,14 @@ export default function CalendarPage() {
         </div>
         <div className="calendar-grid">
           {['Mo','Di','Mi','Do','Fr','Sa','So'].map(d => <strong key={d}>{d}</strong>)}
-          {days.map((day, i) => <div className={`calendar-day ${day && day.toDateString() === new Date().toDateString() ? 'today' : ''}`} key={i}>
+          {days.map((day, i) => <div className={`calendar-day ${day && day.toDateString() === new Date().toDateString() ? 'today' : ''}`} key={i} onClick={() => day && openCreate(localDateValue(day))}>
             {day && <>
-              <button className="calendar-day-number" onClick={() => openCreate(localDateValue(day))} aria-label={`Termin am ${day.toLocaleDateString('de-DE')}`}>{day.getDate()}</button>
+              <button className="calendar-day-number" onClick={event => { event.stopPropagation(); openCreate(localDateValue(day)); }} aria-label={`Termin am ${day.toLocaleDateString('de-DE')}`}>{day.getDate()}</button>
               {eventFor(day).slice(0, 5).map(item => item.kind === 'board'
-                ? <a className="calendar-event calendar-event-board" key={item.id} href={`/?board=${item.boardId}`} title={`Board-Datum: ${item.title}`}><b>{item.title}</b><small>Board-Datum</small></a>
+                ? <a className="calendar-event calendar-event-board" key={item.id} href={`/?board=${item.boardId}`} onClick={event => event.stopPropagation()} title={`Board-Datum: ${item.title}`}><b>{item.title}</b><small>Board-Datum</small></a>
                 : item.kind === 'event'
-                  ? <a className="calendar-event calendar-event-board" key={item.id} href={`/?board=${item.boardId}`} title={`Aufgabe: ${item.title} · ${item.boardName}`}><b>{item.title}</b><small>Aufgabe · {item.boardName}</small></a>
-                  : <button className="calendar-event" key={item.id} onClick={() => openEdit(item)} title="Termin bearbeiten"><b>{item.title}</b><small>{item.all_day ? 'Ganztägig' : new Date(item.starts_at).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })}{item.boardName ? ` · ${item.boardName}` : ''}</small></button>
+                  ? <a className="calendar-event calendar-event-board" key={item.id} href={`/?board=${item.boardId}`} onClick={event => event.stopPropagation()} title={`Aufgabe: ${item.title} · ${item.boardName}`}><b>{item.title}</b><small>Aufgabe · {item.boardName}</small></a>
+                  : <button className="calendar-event" key={item.id} onClick={event => { event.stopPropagation(); openEdit(item); }} title="Termin bearbeiten"><b>{item.title}</b><small>{item.all_day ? 'Ganztägig' : new Date(item.starts_at).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })}{item.boardName ? ` · ${item.boardName}` : ''}</small></button>
               )}
             </>}
           </div>)}
@@ -245,10 +258,14 @@ export default function CalendarPage() {
           <label>Titel<input value={title} onChange={e => setTitle(e.target.value)} placeholder="z. B. Kundentermin" autoFocus /></label>
           <label>Beschreibung<textarea value={description} onChange={e => setDescription(e.target.value)} rows={3} placeholder="Optionale Beschreibung" /></label>
           <div className="calendar-event-fields">
-            <label>Datum<input type="date" value={date} onChange={e => setDate(e.target.value)} /></label>
-            <label className="calendar-event-check"><span>Ganztägig</span><input type="checkbox" checked={allDay} onChange={e => setAllDay(e.target.checked)} /></label>
+            <label>Startdatum<input type="date" value={date} onChange={e => setDate(e.target.value)} /></label>
+            <label>Enddatum <span className="muted">(optional)</span><input type="date" value={endDate} min={date} onChange={e => setEndDate(e.target.value)} /></label>
           </div>
-          {!allDay && <div className="calendar-event-fields"><label>Beginn<input type="time" value={startTime} onChange={e => setStartTime(e.target.value)} /></label><label>Ende<input type="time" value={endTime} onChange={e => setEndTime(e.target.value)} /></label></div>}
+          <div className="calendar-event-fields">
+            <label className="calendar-event-check"><span>Ganztägig</span><input type="checkbox" checked={allDay} onChange={e => setAllDay(e.target.checked)} /></label>
+            {!allDay && <label>Beginn<input type="time" value={startTime} onChange={e => setStartTime(e.target.value)} /></label>}
+            {!allDay && <label>Ende<input type="time" value={endTime} onChange={e => setEndTime(e.target.value)} /></label>}
+          </div>
           <label>Board (optional)<select value={boardId} onChange={e => setBoardId(e.target.value)}><option value="">Keinem Board zugeordnet</option>{boards.map(board => <option key={board.id} value={board.id}>{board.name}</option>)}</select></label>
         </div>
         <footer><div>{editing && <button className="danger" onClick={() => void deleteEvent()}>Termin löschen</button>}</div><div><button className="ghost" onClick={() => setFormOpen(false)}>Abbrechen</button><button className="primary" onClick={() => void saveEvent()} disabled={saving || !title.trim() || !date}>{saving ? 'Speichern …' : editing ? 'Änderungen speichern' : 'Termin anlegen'}</button></div></footer>
